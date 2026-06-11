@@ -79,7 +79,7 @@ export function listSshConfigHosts(): Array<SshConfigHost> {
           (alias) =>
             !alias.includes("*") &&
             !alias.includes("?") &&
-            !alias.startsWith("!"),
+            !alias.startsWith("!")
         )
         .map((alias) => ({ alias }))
       hosts.push(...currentBlock)
@@ -92,7 +92,8 @@ export function listSshConfigHosts(): Array<SshConfigHost> {
   return hosts
 }
 
-// Reuse one SSH connection across requests so browsing feels instant.
+// Reuse one SSH connection across requests where OpenSSH multiplexing is
+// available. Windows OpenSSH does not reliably support these Unix socket args.
 const SSH_BASE_ARGS = [
   "-o",
   "BatchMode=yes",
@@ -100,12 +101,16 @@ const SSH_BASE_ARGS = [
   "ConnectTimeout=5",
   "-o",
   "ServerAliveInterval=15",
-  "-o",
-  "ControlMaster=auto",
-  "-o",
-  "ControlPath=/tmp/codex-explorer-%C",
-  "-o",
-  "ControlPersist=3600",
+  ...(process.platform === "win32"
+    ? []
+    : [
+        "-o",
+        "ControlMaster=auto",
+        "-o",
+        "ControlPath=/tmp/ce-%C",
+        "-o",
+        "ControlPersist=3600",
+      ]),
 ]
 
 const MAX_OUTPUT_BYTES = 200 * 1024 * 1024
@@ -114,7 +119,7 @@ const COMMAND_TIMEOUT_MS = 15_000
 export class SshError extends Error {
   constructor(
     message: string,
-    public connectionFailure = false,
+    public connectionFailure = false
   ) {
     super(message)
   }
@@ -163,13 +168,13 @@ function execRemote(command: string): Promise<Buffer> {
               timedOut
                 ? "The server took too long to answer"
                 : detail || error.message || "Could not reach the server",
-              connectionFailure,
-            ),
+              connectionFailure
+            )
           )
         } else {
           resolve(stdout)
         }
-      },
+      }
     )
   })
 }
@@ -226,7 +231,7 @@ export interface CachedResult<T> {
 async function withCache<T>(
   key: string,
   ttlMs: number,
-  fetcher: () => Promise<T>,
+  fetcher: () => Promise<T>
 ): Promise<CachedResult<T>> {
   const slot = cache.get(key)
   if (slot && slot.expiresAt > Date.now()) {
@@ -249,7 +254,7 @@ async function withCache<T>(
     }
   })()
   inFlight.set(key, promise)
-  return (await promise) as CachedResult<T>
+  return await promise
 }
 
 /** Drop all cached listings/contents — used after mutations like delete. */
@@ -279,7 +284,7 @@ export async function fetchTree(): Promise<CachedResult<Array<RemoteEntry>>> {
     const output = await runRemote(
       `find ${shellQuote(REMOTE_ROOT)} -mindepth 1 ` +
         `\\( -path '*/.*' -o -name '.*' -o -name node_modules -o -name __pycache__ -o -name venv -o -name .venv \\) -prune ` +
-        `-o -printf '%y\\t%s\\t%T@\\t%P\\n'`,
+        `-o -printf '%y\\t%s\\t%T@\\t%P\\n'`
     )
     const entries: Array<RemoteEntry> = []
     for (const line of output.split("\n")) {
@@ -308,7 +313,7 @@ export function sortEntries(entries: Array<RemoteEntry>): Array<RemoteEntry> {
 }
 
 export async function listRemoteDir(
-  relativePath: string,
+  relativePath: string
 ): Promise<CachedResult<Array<RemoteEntry>>> {
   resolveRemotePath(relativePath) // path safety check
   const tree = await fetchTree()
@@ -317,13 +322,13 @@ export async function listRemoteDir(
     (entry) =>
       entry.path.startsWith(prefix) &&
       !entry.path.slice(prefix.length).includes("/") &&
-      entry.path !== relativePath,
+      entry.path !== relativePath
   )
   return { value: sortEntries(children), stale: tree.stale }
 }
 
 export async function findEntry(
-  relativePath: string,
+  relativePath: string
 ): Promise<CachedResult<RemoteEntry | null>> {
   resolveRemotePath(relativePath)
   const tree = await fetchTree()
@@ -334,11 +339,11 @@ export async function findEntry(
 }
 
 export async function readRemoteFile(
-  relativePath: string,
+  relativePath: string
 ): Promise<CachedResult<Buffer>> {
   const absolute = resolveRemotePath(relativePath)
   return withCache(`file:${relativePath}`, FILE_TTL_MS, () =>
-    runRemoteRaw(`cat ${shellQuote(absolute)}`),
+    runRemoteRaw(`cat ${shellQuote(absolute)}`)
   )
 }
 
@@ -349,7 +354,7 @@ export interface SearchResult {
 }
 
 export async function searchRemote(
-  query: string,
+  query: string
 ): Promise<Array<SearchResult>> {
   requireHost()
   const cleaned = query.trim()
@@ -377,7 +382,7 @@ export async function searchRemote(
   // Content matches need one remote grep; skip silently if unreachable.
   try {
     const output = await runRemote(
-      `grep -rilI --exclude-dir='.*' --include='*.md' --include='*.txt' --include='*.json' --include='*.jsonl' --include='*.html' -e ${shellQuote(cleaned)} ${shellQuote(REMOTE_ROOT)} 2>/dev/null | head -40`,
+      `grep -rilI --exclude-dir='.*' --include='*.md' --include='*.txt' --include='*.json' --include='*.jsonl' --include='*.html' -e ${shellQuote(cleaned)} ${shellQuote(REMOTE_ROOT)} 2>/dev/null | head -40`
     )
     for (const line of output.split("\n")) {
       const absolute = line.trim()

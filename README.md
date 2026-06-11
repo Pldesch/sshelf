@@ -16,12 +16,35 @@ bun run dev
 
 Then open <http://localhost:3010>.
 
+## Desktop app
+
+The Electron shell runs the same TanStack Start app. In development it loads
+the Vite dev server; packaged builds start the compiled server locally inside
+the desktop app and serve the compiled client assets from `dist/client`.
+
+```sh
+bun run electron:dev
+bun run electron:pack:mac
+bun run electron:pack:win
+```
+
+Full distributable builds are available with:
+
+```sh
+bun run electron:dist:mac
+bun run electron:dist:win
+```
+
+macOS builds target Apple Silicon and Intel. Windows builds target x64 by
+default.
+
 ## How it connects
 
 It shells out to your system `ssh` using the `ovh-codex` entry from
-`~/.ssh/config`, so it reuses your existing key/agent setup. One
-multiplexed connection (`ControlMaster`) is kept alive for an hour, so
-commands take ~100ms instead of a full handshake.
+`~/.ssh/config`, so it reuses your existing key/agent setup. On macOS and
+Linux, one multiplexed connection (`ControlMaster`) is kept alive for an
+hour, so commands take ~100ms instead of a full handshake. Windows skips
+those Unix socket options and uses regular OpenSSH calls.
 
 Set `EXPLORER_SSH_HOST` to point at a different SSH host.
 

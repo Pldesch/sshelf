@@ -1,10 +1,21 @@
 {
   "name": "codex-explorer",
+  "version": "0.1.0",
+  "description": "Desktop SSH file explorer",
+  "author": "Pierre-Loic Deschaetzen",
   "private": true,
   "type": "module",
+  "main": "electron/main.cjs",
   "scripts": {
     "dev": "vite dev --port 3010",
+    "electron:dev": "concurrently -k \"vite dev --port 3010\" \"wait-on http://localhost:3010 && electron .\"",
     "build": "vite build",
+    "electron:pack": "bun run build && electron-builder --dir",
+    "electron:pack:mac": "bun run build && electron-builder --mac --arm64 --x64 --dir",
+    "electron:pack:win": "bun run build && electron-builder --win --x64 --dir",
+    "electron:build": "bun run build && electron-builder",
+    "electron:dist:mac": "bun run build && electron-builder --mac --arm64 --x64",
+    "electron:dist:win": "bun run build && electron-builder --win --x64",
     "preview": "vite preview",
     "test": "vitest run",
     "lint": "eslint",
@@ -47,12 +58,52 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "@vitejs/plugin-react": "^6",
+    "concurrently": "^10.0.3",
+    "electron": "^42.4.0",
+    "electron-builder": "^26.15.2",
     "eslint": "^9",
     "jsdom": "^28",
     "prettier": "^3.8.3",
     "prettier-plugin-tailwindcss": "^0.8.0",
     "typescript": "^6",
     "vite": "^8",
-    "vitest": "^4"
+    "vitest": "^4",
+    "wait-on": "^9.0.10"
+  },
+  "overrides": {
+    "@noble/hashes": "1.8.0"
+  },
+  "build": {
+    "appId": "com.codexexplorer.app",
+    "productName": "Codex Explorer",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**/*",
+      "electron/**/*",
+      "public/**/*",
+      "package.json"
+    ],
+    "mac": {
+      "category": "public.app-category.developer-tools",
+      "icon": "build/icons/icon.icns",
+      "target": [
+        "dmg",
+        "zip"
+      ]
+    },
+    "win": {
+      "icon": "build/icons/icon.ico",
+      "target": [
+        "nsis",
+        "zip"
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true
+    }
   }
 }
