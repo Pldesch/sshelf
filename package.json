@@ -1,6 +1,6 @@
 {
   "name": "codex-explorer",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Desktop SSH file explorer",
   "author": "Pierre-Loic Deschaetzen",
   "private": true,
