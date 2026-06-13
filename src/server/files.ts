@@ -126,7 +126,7 @@ export const browsePath = createServerFn()
     let content: string | null = null
     let stale = found.stale
     if (
-      (kind === "markdown" || kind === "text") &&
+      (kind === "markdown" || kind === "text" || kind === "html") &&
       entry.size <= MAX_TEXT_BYTES
     ) {
       const file = await readRemoteFile(data.path)

@@ -55,6 +55,7 @@ import type { RemoteEntry, SearchResult, SshConfigHost } from "@/server/ssh"
 const MarkdownViewer = React.lazy(() => import("@/components/markdown-viewer"))
 const TextViewer = React.lazy(() => import("@/components/text-viewer"))
 const MarkdownEditor = React.lazy(() => import("@/components/markdown-editor"))
+const HtmlViewer = React.lazy(() => import("@/components/html-viewer"))
 
 export type PageData =
   | BrowseResult
@@ -375,6 +376,10 @@ function FileView({ data }: { data: Extract<PageData, { kind: "file" }> }) {
       ) : kind === "text" && data.content !== null ? (
         <React.Suspense fallback={<ViewerFallback />}>
           <TextViewer path={data.path} content={data.content} />
+        </React.Suspense>
+      ) : kind === "html" ? (
+        <React.Suspense fallback={<ViewerFallback />}>
+          <HtmlViewer path={data.path} content={data.content} />
         </React.Suspense>
       ) : kind === "pdf" ? (
         <PdfViewer path={data.path} />
