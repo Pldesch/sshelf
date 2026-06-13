@@ -50,6 +50,7 @@ import {
   nameOf,
   rawFileUrl,
 } from "@/lib/file-kinds"
+import { useRemoteFileEvents } from "@/lib/use-file-events"
 import type { BrowseResult } from "@/server/files"
 import type { RemoteEntry, SearchResult, SshConfigHost } from "@/server/ssh"
 
@@ -147,6 +148,7 @@ function ExplorerShell({
   children: React.ReactNode
 }) {
   const navigate = useNavigate()
+  useRemoteFileEvents()
   return (
     <SidebarProvider>
       <AppSidebar activePath={activePath} />

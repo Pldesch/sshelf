@@ -1,4 +1,4 @@
-import { execFile } from "node:child_process"
+import { execFile, spawn } from "node:child_process"
 import { readFileSync, writeFileSync } from "node:fs"
 import { homedir } from "node:os"
 import { join } from "node:path"
@@ -211,6 +211,71 @@ export async function runRemote(command: string): Promise<string> {
   return (await runRemoteRaw(command)).toString("utf-8")
 }
 
+/**
+ * Run a remote command, streaming `input` to its stdin. Used to push file
+ * contents to the server (`cat > file`) without embedding bytes in argv.
+ */
+function execRemoteStdin(command: string, input: Buffer): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const child = spawn("ssh", [...SSH_BASE_ARGS, requireHost(), command], {
+      stdio: ["pipe", "ignore", "pipe"],
+    })
+    const stderr: Array<Buffer> = []
+    let settled = false
+    const finish = (err?: SshError) => {
+      if (settled) return
+      settled = true
+      clearTimeout(timer)
+      if (err) reject(err)
+      else resolve()
+    }
+    const timer = setTimeout(() => {
+      child.kill("SIGKILL")
+      finish(new SshError("The server took too long to answer", true))
+    }, COMMAND_TIMEOUT_MS)
+    child.stderr.on("data", (chunk) => stderr.push(chunk))
+    // The remote may close stdin early (e.g. on error) — ignore the EPIPE.
+    child.stdin.on("error", () => {})
+    child.on("error", (error) =>
+      finish(new SshError(error.message || "Could not reach the server", true))
+    )
+    child.on("close", (code, signal) => {
+      if (code === 0) {
+        finish()
+        return
+      }
+      const detail = Buffer.concat(stderr).toString("utf-8").trim()
+      const connectionFailure = signal === "SIGKILL" || code === 255
+      finish(
+        new SshError(detail || "Could not reach the server", connectionFailure)
+      )
+    })
+    child.stdin.end(input)
+  })
+}
+
+/** Create a directory (and any missing parents) on the remote. */
+export async function makeRemoteDir(relativePath: string): Promise<void> {
+  const absolute = resolveRemotePath(relativePath)
+  await runRemote(`mkdir -p ${shellQuote(absolute)}`)
+  clearRemoteCache()
+}
+
+/** Write `content` to a remote file, creating missing parent directories. */
+export async function writeRemoteFile(
+  relativePath: string,
+  content: Buffer
+): Promise<void> {
+  const absolute = resolveRemotePath(relativePath)
+  const slash = absolute.lastIndexOf("/")
+  const parent = slash > 0 ? absolute.slice(0, slash) : REMOTE_ROOT
+  await execRemoteStdin(
+    `mkdir -p ${shellQuote(parent)} && cat > ${shellQuote(absolute)}`,
+    content
+  )
+  clearRemoteCache()
+}
+
 /* ── In-memory cache: fresh within TTL, stale data survives as a
      fallback so the app keeps working when the connection drops. ── */
 
@@ -274,6 +339,20 @@ export interface RemoteEntry {
 
 const TREE_TTL_MS = 30_000
 const FILE_TTL_MS = 60_000
+const VISIBLE_DOT_DIRECTORY_NAMES = [".claude"]
+const PRUNED_DIRECTORY_NAMES = [
+  ".git",
+  ".venv",
+  "__pycache__",
+  "node_modules",
+  "venv",
+]
+const VISIBLE_DOT_DIRECTORY_TEST = VISIBLE_DOT_DIRECTORY_NAMES.map(
+  (name) => `-name ${shellQuote(name)}`
+).join(" -o ")
+const FIND_PRUNE_EXPRESSION = PRUNED_DIRECTORY_NAMES.map(
+  (name) => `-name ${shellQuote(name)}`
+).join(" -o ")
 
 /**
  * Fetch the entire visible tree in ONE ssh round trip (the server holds
@@ -283,7 +362,7 @@ export async function fetchTree(): Promise<CachedResult<Array<RemoteEntry>>> {
   return withCache("tree", TREE_TTL_MS, async () => {
     const output = await runRemote(
       `find ${shellQuote(REMOTE_ROOT)} -mindepth 1 ` +
-        `\\( -path '*/.*' -o -name '.*' -o -name node_modules -o -name __pycache__ -o -name venv -o -name .venv \\) -prune ` +
+        `\\( -name '.*' ! \\( ${VISIBLE_DOT_DIRECTORY_TEST} \\) -o ${FIND_PRUNE_EXPRESSION} \\) -prune ` +
         `-o -printf '%y\\t%s\\t%T@\\t%P\\n'`
     )
     const entries: Array<RemoteEntry> = []
@@ -382,7 +461,7 @@ export async function searchRemote(
   // Content matches need one remote grep; skip silently if unreachable.
   try {
     const output = await runRemote(
-      `grep -rilI --exclude-dir='.*' --include='*.md' --include='*.txt' --include='*.json' --include='*.jsonl' --include='*.html' -e ${shellQuote(cleaned)} ${shellQuote(REMOTE_ROOT)} 2>/dev/null | head -40`
+      `find ${shellQuote(REMOTE_ROOT)} -type d \\( -name '.*' ! \\( ${VISIBLE_DOT_DIRECTORY_TEST} \\) -o ${FIND_PRUNE_EXPRESSION} \\) -prune -o -type f \\( -name '*.md' -o -name '*.txt' -o -name '*.json' -o -name '*.jsonl' -o -name '*.html' \\) -print0 | xargs -0 grep -ilI -e ${shellQuote(cleaned)} 2>/dev/null | head -40`
     )
     for (const line of output.split("\n")) {
       const absolute = line.trim()

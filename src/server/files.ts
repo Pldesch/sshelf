@@ -16,7 +16,7 @@ import {
   shellQuote,
   sortEntries,
 } from "@/server/ssh"
-import { fileKindOf } from "@/lib/file-kinds"
+import { fileKindOf, nameOf, parentOf } from "@/lib/file-kinds"
 import type { RemoteEntry, SearchResult, SshConfigHost } from "@/server/ssh"
 
 const MAX_TEXT_BYTES = 4 * 1024 * 1024
@@ -55,7 +55,7 @@ export const getTree = createServerFn().handler(
       stale: tree.stale,
       host: getCurrentHost(),
     }
-  },
+  }
 )
 
 export interface SshHostsResult {
@@ -67,7 +67,7 @@ export const getSshHosts = createServerFn().handler(
   async (): Promise<SshHostsResult> => ({
     hosts: listSshConfigHosts(),
     current: getCurrentHost(),
-  }),
+  })
 )
 
 export const selectSshHost = createServerFn({ method: "POST" })
@@ -156,6 +156,126 @@ export const deletePath = createServerFn({ method: "POST" })
     // Listings and contents are now wrong — refetch on next request.
     clearRemoteCache()
     return { ok: true }
+  })
+
+function validateEntryName(name: string): string {
+  const trimmed = name.trim()
+  if (!trimmed) throw new Error("Name cannot be empty")
+  if (trimmed === "." || trimmed === ".." || trimmed.includes("/")) {
+    throw new Error("Name cannot contain path separators")
+  }
+  if (trimmed.includes("\0")) throw new Error("Name cannot contain null bytes")
+  return trimmed
+}
+
+export const createFolder = createServerFn({ method: "POST" })
+  .inputValidator((data: { parentPath: string; name: string }) => data)
+  .handler(async ({ data }) => {
+    const name = validateEntryName(data.name)
+    if (data.parentPath) {
+      const parent = await findEntry(data.parentPath)
+      if (!parent.value || parent.value.type !== "dir") {
+        throw new Error("Destination folder was not found")
+      }
+    }
+    const nextPath = data.parentPath ? `${data.parentPath}/${name}` : name
+    const absolute = resolveRemotePath(nextPath)
+    await runRemote(
+      `if [ -e ${shellQuote(absolute)} ]; then ` +
+        `printf '%s\\n' 'An item with that name already exists' >&2; exit 1; ` +
+        `fi; mkdir ${shellQuote(absolute)}`
+    )
+    clearRemoteCache()
+    return { ok: true, path: nextPath }
+  })
+
+async function moveWithoutOverwrite(fromPath: string, toPath: string) {
+  const fromAbsolute = resolveRemotePath(fromPath)
+  const toAbsolute = resolveRemotePath(toPath)
+  await runRemote(
+    `if [ -e ${shellQuote(toAbsolute)} ]; then ` +
+      `printf '%s\\n' 'An item with that name already exists' >&2; exit 1; ` +
+      `fi; mv ${shellQuote(fromAbsolute)} ${shellQuote(toAbsolute)}`
+  )
+  clearRemoteCache()
+}
+
+export const renameFile = createServerFn({ method: "POST" })
+  .inputValidator((data: { path: string; name: string }) => data)
+  .handler(async ({ data }) => {
+    const nextName = validateEntryName(data.name)
+    const found = await findEntry(data.path)
+    if (!found.value) {
+      throw new SshError(`"${data.path}" was not found on the server`)
+    }
+    if (found.value.type !== "file") {
+      throw new Error("Only files can be renamed from this menu")
+    }
+
+    const parent = parentOf(data.path)
+    const nextPath = parent ? `${parent}/${nextName}` : nextName
+    if (nextPath === data.path) return { ok: true, path: nextPath }
+
+    await moveWithoutOverwrite(data.path, nextPath)
+    return { ok: true, path: nextPath }
+  })
+
+async function moveEntryToParent(data: {
+  path: string
+  parentPath: string
+  expectedType?: "dir" | "file"
+}) {
+  if (!data.path) throw new Error("The root folder cannot be moved")
+  const found = await findEntry(data.path)
+  if (!found.value) {
+    throw new SshError(`"${data.path}" was not found on the server`)
+  }
+  if (data.expectedType && found.value.type !== data.expectedType) {
+    throw new Error(
+      data.expectedType === "dir"
+        ? "Only folders can be moved from this menu"
+        : "Only files can be moved from this menu"
+    )
+  }
+
+  const targetParentPath = data.parentPath
+  const targetParent = targetParentPath
+    ? await findEntry(targetParentPath)
+    : { value: { type: "dir" } }
+  if (!targetParent.value || targetParent.value.type !== "dir") {
+    throw new Error("Destination folder was not found")
+  }
+  if (
+    found.value.type === "dir" &&
+    (targetParentPath === data.path ||
+      targetParentPath.startsWith(`${data.path}/`))
+  ) {
+    throw new Error("A folder cannot be moved inside itself")
+  }
+
+  const currentParent = parentOf(data.path)
+  if (targetParentPath === currentParent) {
+    return { ok: true, path: data.path }
+  }
+
+  const nextPath = targetParentPath
+    ? `${targetParentPath}/${nameOf(data.path)}`
+    : nameOf(data.path)
+
+  await moveWithoutOverwrite(data.path, nextPath)
+  return { ok: true, path: nextPath }
+}
+
+export const moveEntry = createServerFn({ method: "POST" })
+  .inputValidator((data: { path: string; parentPath: string }) => data)
+  .handler(async ({ data }) => {
+    return moveEntryToParent(data)
+  })
+
+export const moveFolder = createServerFn({ method: "POST" })
+  .inputValidator((data: { path: string; parentPath: string }) => data)
+  .handler(async ({ data }) => {
+    return moveEntryToParent({ ...data, expectedType: "dir" })
   })
 
 export const searchFiles = createServerFn()

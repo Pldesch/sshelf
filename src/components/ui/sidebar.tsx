@@ -26,16 +26,53 @@ import {
 import { PanelLeftIcon } from "lucide-react"
 
 const SIDEBAR_COOKIE_NAME = "sidebar_state"
+const SIDEBAR_WIDTH_COOKIE_NAME = "sidebar_width"
 const SIDEBAR_COOKIE_MAX_AGE = 60 * 60 * 24 * 7
-const SIDEBAR_WIDTH = "16rem"
+const SIDEBAR_WIDTH = 256
+const SIDEBAR_WIDTH_MIN = 208
+const SIDEBAR_WIDTH_MAX = 480
 const SIDEBAR_WIDTH_MOBILE = "18rem"
 const SIDEBAR_WIDTH_ICON = "3rem"
+const SIDEBAR_WIDTH_STORAGE_KEY = "sidebar_width"
 const SIDEBAR_KEYBOARD_SHORTCUT = "b"
+
+function clampSidebarWidth(width: number) {
+  return Math.min(
+    SIDEBAR_WIDTH_MAX,
+    Math.max(SIDEBAR_WIDTH_MIN, Math.round(width))
+  )
+}
+
+function persistedSidebarWidth() {
+  if (typeof window === "undefined") return SIDEBAR_WIDTH
+
+  const stored = Number(window.localStorage.getItem(SIDEBAR_WIDTH_STORAGE_KEY))
+  if (Number.isFinite(stored)) return clampSidebarWidth(stored)
+
+  const cookieWidth = Number(
+    document.cookie
+      .split("; ")
+      .find((row) => row.startsWith(`${SIDEBAR_WIDTH_COOKIE_NAME}=`))
+      ?.split("=")[1]
+  )
+  return Number.isFinite(cookieWidth)
+    ? clampSidebarWidth(cookieWidth)
+    : SIDEBAR_WIDTH
+}
+
+function persistSidebarWidth(width: number) {
+  if (typeof window === "undefined") return
+  const value = String(clampSidebarWidth(width))
+  window.localStorage.setItem(SIDEBAR_WIDTH_STORAGE_KEY, value)
+  document.cookie = `${SIDEBAR_WIDTH_COOKIE_NAME}=${value}; path=/; max-age=${SIDEBAR_COOKIE_MAX_AGE}`
+}
 
 type SidebarContextProps = {
   state: "expanded" | "collapsed"
   open: boolean
   setOpen: (open: boolean) => void
+  sidebarWidth: number
+  setSidebarWidth: (width: number | ((width: number) => number)) => void
   openMobile: boolean
   setOpenMobile: (open: boolean) => void
   isMobile: boolean
@@ -68,6 +105,7 @@ function SidebarProvider({
 }) {
   const isMobile = useIsMobile()
   const [openMobile, setOpenMobile] = React.useState(false)
+  const [sidebarWidth, setSidebarWidthState] = React.useState(SIDEBAR_WIDTH)
 
   // This is the internal state of the sidebar.
   // We use openProp and setOpenProp for control from outside the component.
@@ -88,9 +126,26 @@ function SidebarProvider({
     [setOpenProp, open]
   )
 
+  const setSidebarWidth = React.useCallback(
+    (value: number | ((width: number) => number)) => {
+      setSidebarWidthState((currentWidth) => {
+        const nextWidth =
+          typeof value === "function" ? value(currentWidth) : value
+        return clampSidebarWidth(nextWidth)
+      })
+    },
+    []
+  )
+
+  React.useEffect(() => {
+    setSidebarWidthState(persistedSidebarWidth())
+  }, [])
+
   // Helper to toggle the sidebar.
   const toggleSidebar = React.useCallback(() => {
-    return isMobile ? setOpenMobile((open) => !open) : setOpen((open) => !open)
+    return isMobile
+      ? setOpenMobile((currentOpen) => !currentOpen)
+      : setOpen((currentOpen) => !currentOpen)
   }, [isMobile, setOpen, setOpenMobile])
 
   // Adds a keyboard shortcut to toggle the sidebar.
@@ -118,12 +173,24 @@ function SidebarProvider({
       state,
       open,
       setOpen,
+      sidebarWidth,
+      setSidebarWidth,
       isMobile,
       openMobile,
       setOpenMobile,
       toggleSidebar,
     }),
-    [state, open, setOpen, isMobile, openMobile, setOpenMobile, toggleSidebar]
+    [
+      state,
+      open,
+      setOpen,
+      sidebarWidth,
+      setSidebarWidth,
+      isMobile,
+      openMobile,
+      setOpenMobile,
+      toggleSidebar,
+    ]
   )
 
   return (
@@ -132,7 +199,7 @@ function SidebarProvider({
         data-slot="sidebar-wrapper"
         style={
           {
-            "--sidebar-width": SIDEBAR_WIDTH,
+            "--sidebar-width": `${sidebarWidth}px`,
             "--sidebar-width-icon": SIDEBAR_WIDTH_ICON,
             ...style,
           } as React.CSSProperties
@@ -246,8 +313,99 @@ function Sidebar({
         >
           {children}
         </div>
+        <SidebarResizeHandle side={side} />
       </div>
     </div>
+  )
+}
+
+function SidebarResizeHandle({ side }: { side: "left" | "right" }) {
+  const { sidebarWidth, setSidebarWidth, state } = useSidebar()
+
+  function handlePointerDown(event: React.PointerEvent<HTMLButtonElement>) {
+    if (state === "collapsed") return
+    event.preventDefault()
+
+    const wrapper = event.currentTarget.closest<HTMLElement>(
+      '[data-slot="sidebar-wrapper"]'
+    )
+    if (!wrapper) return
+    const sidebarWrapper = wrapper
+
+    const animatedElements = [
+      ...sidebarWrapper.querySelectorAll<HTMLElement>(
+        '[data-slot="sidebar-gap"], [data-slot="sidebar-container"]'
+      ),
+    ]
+    const originalTransitions = animatedElements.map(
+      (element) => element.style.transition
+    )
+    const startX = event.clientX
+    const startWidth =
+      parseFloat(
+        getComputedStyle(sidebarWrapper).getPropertyValue("--sidebar-width")
+      ) || sidebarWidth
+    const bodyCursor = document.body.style.cursor
+    const bodyUserSelect = document.body.style.userSelect
+    let nextWidth = startWidth
+    let animationFrame = 0
+
+    document.body.style.cursor = "col-resize"
+    document.body.style.userSelect = "none"
+    animatedElements.forEach((element) => {
+      element.style.transition = "none"
+    })
+
+    function handlePointerMove(moveEvent: PointerEvent) {
+      const delta =
+        side === "left" ? moveEvent.clientX - startX : startX - moveEvent.clientX
+      nextWidth = clampSidebarWidth(startWidth + delta)
+      if (animationFrame) return
+      animationFrame = window.requestAnimationFrame(() => {
+        animationFrame = 0
+        sidebarWrapper.style.setProperty("--sidebar-width", `${nextWidth}px`)
+        event.currentTarget.setAttribute("aria-valuenow", String(nextWidth))
+      })
+    }
+
+    function handlePointerUp() {
+      if (animationFrame) {
+        window.cancelAnimationFrame(animationFrame)
+        animationFrame = 0
+      }
+      sidebarWrapper.style.setProperty("--sidebar-width", `${nextWidth}px`)
+      setSidebarWidth(nextWidth)
+      persistSidebarWidth(nextWidth)
+      animatedElements.forEach((element, index) => {
+        element.style.transition = originalTransitions[index] ?? ""
+      })
+      document.body.style.cursor = bodyCursor
+      document.body.style.userSelect = bodyUserSelect
+      window.removeEventListener("pointermove", handlePointerMove)
+      window.removeEventListener("pointerup", handlePointerUp)
+    }
+
+    window.addEventListener("pointermove", handlePointerMove)
+    window.addEventListener("pointerup", handlePointerUp)
+  }
+
+  return (
+    <button
+      type="button"
+      aria-label="Resize sidebar"
+      aria-orientation="vertical"
+      aria-valuemax={SIDEBAR_WIDTH_MAX}
+      aria-valuemin={SIDEBAR_WIDTH_MIN}
+      aria-valuenow={sidebarWidth}
+      data-slot="sidebar-resize-handle"
+      role="separator"
+      onPointerDown={handlePointerDown}
+      className={cn(
+        "absolute inset-y-0 z-30 hidden w-2 cursor-col-resize touch-none transition-colors after:absolute after:inset-y-0 after:left-1/2 after:w-px after:-translate-x-1/2 after:bg-transparent hover:after:bg-sidebar-ring focus-visible:after:bg-sidebar-ring focus-visible:outline-hidden md:block",
+        side === "left" ? "-right-1" : "-left-1",
+        "group-data-[state=collapsed]:hidden"
+      )}
+    />
   )
 }
 
