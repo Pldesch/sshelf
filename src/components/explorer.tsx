@@ -431,6 +431,7 @@ function MarkdownCard({ path, content }: { path: string; content: string }) {
             content={text}
             onSave={handleSave}
             baseDir={parentOf(path)}
+            docName={nameOf(path)}
           />
         </React.Suspense>
       ) : (
