@@ -572,3 +572,51 @@ export const saveRowBody = createServerFn({ method: "POST" })
     )
     return { ok: true }
   })
+
+/** Hidden sidecar table holding each table's saved view config (as JSON). */
+const VIEWS_TABLE = "_codex_views"
+
+async function ensureViewsTable(absoluteFile: string): Promise<void> {
+  await execDb(
+    absoluteFile,
+    `CREATE TABLE IF NOT EXISTS ${quoteIdent(VIEWS_TABLE)} ` +
+      `(tbl TEXT NOT NULL PRIMARY KEY, config TEXT)`
+  )
+}
+
+/** Read a table's saved view config (opaque JSON string), or null if none. */
+export const readDatabaseView = createServerFn()
+  .inputValidator((data: { path: string; table: string }) => data)
+  .handler(async ({ data }): Promise<{ config: string | null }> => {
+    const file = resolveRemotePath(data.path)
+    let rows: Array<Record<string, DbValue>>
+    try {
+      rows = await queryDb(
+        file,
+        `SELECT config FROM ${quoteIdent(VIEWS_TABLE)} ` +
+          `WHERE tbl = ${sqlLiteral(data.table)}`
+      )
+    } catch {
+      return { config: null } // views table doesn't exist yet
+    }
+    const config = rows[0]?.config
+    return { config: config == null ? null : String(config) }
+  })
+
+/** Create or replace a table's saved view config. */
+export const saveDatabaseView = createServerFn({ method: "POST" })
+  .inputValidator(
+    (data: { path: string; table: string; config: string }) => data
+  )
+  .handler(async ({ data }) => {
+    const file = resolveRemotePath(data.path)
+    await tableColumns(file, data.table) // validates the table exists
+    await ensureViewsTable(file)
+    await execDb(
+      file,
+      `INSERT INTO ${quoteIdent(VIEWS_TABLE)} (tbl, config) VALUES (` +
+        `${sqlLiteral(data.table)}, ${sqlLiteral(data.config)}) ` +
+        `ON CONFLICT(tbl) DO UPDATE SET config = excluded.config`
+    )
+    return { ok: true }
+  })

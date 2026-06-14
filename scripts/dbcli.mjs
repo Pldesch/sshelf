@@ -240,7 +240,7 @@ function cmdDiscover(target, dbPath) {
       'multi_select values are stored as a comma+space joined string, e.g. "A, B".',
       "select/status values must be one of the option names.",
       "checkbox values are stored as 1 (checked) or 0.",
-      "Hidden tables _codex_columns (types) and _codex_pages (row markdown bodies) are not listed.",
+      "Hidden tables _codex_columns (types), _codex_pages (row markdown bodies), and _codex_views (saved views) are not listed.",
     ],
   })
 }

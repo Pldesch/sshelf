@@ -26,7 +26,9 @@ import {
   dropDatabaseColumn,
   listDatabaseTables,
   readDatabaseTable,
+  readDatabaseView,
   readRowBody,
+  saveDatabaseView,
   saveRowBody,
   setColumnType,
   updateDatabaseCell,
@@ -126,6 +128,14 @@ const FILTER_OPS: Array<{ op: FilterOp; label: string; needsValue: boolean }> =
     { op: "is_not_empty", label: "is not empty", needsValue: false },
   ]
 
+// ── per-database view persistence (stored in a _codex_views sidecar table) ──
+interface StoredView {
+  view: "table" | "board"
+  groupBy: string | null
+  sort: SortState
+  filters: Array<Filter>
+}
+
 function isEmpty(value: DbValue): boolean {
   return value === null || value === ""
 }
@@ -215,6 +225,8 @@ export default function DatabaseView({ path }: { path: string }) {
   const [view, setView] = React.useState<"table" | "board">("table")
   const [groupBy, setGroupBy] = React.useState<string | null>(null)
   const searchRef = React.useRef<HTMLInputElement>(null)
+  // JSON of the last loaded/saved view config, so we only persist real changes.
+  const savedViewJson = React.useRef<string>("")
 
   // ⌘F / Ctrl+F expands the (collapsed) table search and focuses it, instead
   // of the browser's find bar. Registered only while a database is open.
@@ -228,15 +240,59 @@ export default function DatabaseView({ path }: { path: string }) {
     { preventDefault: true }
   )
 
-  // The view controls reference column names, so reset them per table.
+  // Load this table's saved view (from the _codex_views sidecar table) when it
+  // changes. Search is always reset — it's live, not part of the saved view.
+  // Reset to defaults synchronously so another table's view never lingers,
+  // then apply the stored config once it arrives.
   React.useEffect(() => {
     setSearch("")
     setSearchExpanded(false)
-    setSort(null)
-    setFilters([])
-    setView("table")
-    setGroupBy(null)
-  }, [active])
+    const defaults: StoredView = {
+      view: "table",
+      groupBy: null,
+      sort: null,
+      filters: [],
+    }
+    savedViewJson.current = JSON.stringify(defaults)
+    setView(defaults.view)
+    setGroupBy(defaults.groupBy)
+    setSort(defaults.sort)
+    setFilters(defaults.filters)
+    if (!active) return
+    let cancelled = false
+    readDatabaseView({ data: { path, table: active } })
+      .then((result) => {
+        if (cancelled || !result.config) return
+        const stored = JSON.parse(result.config) as Partial<StoredView>
+        const normalized: StoredView = {
+          view: stored.view ?? "table",
+          groupBy: stored.groupBy ?? null,
+          sort: stored.sort ?? null,
+          filters: stored.filters ?? [],
+        }
+        savedViewJson.current = JSON.stringify(normalized)
+        setView(normalized.view)
+        setGroupBy(normalized.groupBy)
+        setSort(normalized.sort)
+        setFilters(normalized.filters)
+      })
+      .catch(() => {})
+    return () => {
+      cancelled = true
+    }
+  }, [path, active])
+
+  // Persist the view (debounced) whenever it differs from the loaded baseline.
+  React.useEffect(() => {
+    if (!active) return
+    const json = JSON.stringify({ view, groupBy, sort, filters })
+    if (json === savedViewJson.current) return
+    const timer = setTimeout(() => {
+      savedViewJson.current = json
+      void saveDatabaseView({ data: { path, table: active, config: json } })
+    }, 500)
+    return () => clearTimeout(timer)
+  }, [path, active, view, groupBy, sort, filters])
 
   // Columns a board can group by, and a sensible default selection.
   const groupableColumns = React.useMemo(

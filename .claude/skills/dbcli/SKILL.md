@@ -38,7 +38,8 @@ node scripts/dbcli.mjs discover crm.sqlite
 
 Returns, per table: `rowCount` and `columns` with `{ name, sqliteType,
 notNull, primaryKey, kind, options }`. The `notes` field documents value
-formats. Internal tables (`_codex_columns`, `_codex_pages`) are hidden.
+formats. Internal tables (`_codex_columns`, `_codex_pages`, `_codex_views`)
+are hidden.
 
 ## Reading
 
@@ -88,7 +89,7 @@ node scripts/dbcli.mjs sql crm.sqlite "UPDATE people SET role='CTO' WHERE id=5" 
 - Table and column names are quoted; inserted/updated values are escaped, so
   data can't break out of the SQL. `--where` and `sql` are raw SQL you author —
   only pass expressions you constructed, never untrusted input.
-- The CLI does not touch row markdown bodies (`_codex_pages`) or column types
-  (`_codex_columns`); manage those from the app.
+- The CLI does not touch row markdown bodies (`_codex_pages`), column types
+  (`_codex_columns`), or saved views (`_codex_views`); manage those from the app.
 - Prefer `_rowid` (from `read`) or the primary key in `--where` to target a
   single row precisely.
