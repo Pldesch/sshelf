@@ -1,6 +1,6 @@
 {
   "name": "codex-explorer",
-  "version": "0.5.2",
+  "version": "0.5.3",
   "description": "Desktop SSH file explorer",
   "author": "Pierre-Loic Deschaetzen",
   "repository": {
@@ -86,6 +86,7 @@
   "build": {
     "appId": "com.codexexplorer.app",
     "productName": "Codex Explorer",
+    "artifactName": "${name}-${version}-${arch}.${ext}",
     "afterPack": "build/afterPack.cjs",
     "publish": {
       "provider": "github",
