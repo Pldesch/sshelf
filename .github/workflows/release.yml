@@ -15,7 +15,28 @@ permissions:
   contents: write
 
 jobs:
+  # Create the GitHub release up front, once, before any platform builds.
+  # electron-builder publishes its .dmg/.zip artifact groups in parallel, and
+  # each group independently checks "does the release exist?" then creates it —
+  # so two concurrent matrix jobs (or even two publishers within one job) race
+  # to POST /releases and the loser dies with "422 already_exists". Creating it
+  # here means every publisher finds an existing release and only uploads.
+  create-release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Create the release if it doesn't exist
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if ! gh release view "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release create "$GITHUB_REF_NAME" \
+              --repo "$GITHUB_REPOSITORY" \
+              --title "$GITHUB_REF_NAME" \
+              --generate-notes
+          fi
+
   release:
+    needs: create-release
     strategy:
       fail-fast: false
       matrix:

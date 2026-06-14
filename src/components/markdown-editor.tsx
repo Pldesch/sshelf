@@ -39,6 +39,48 @@ function resolveRelative(baseDir: string, href: string): string {
   return stack.join("/")
 }
 
+function stripExtension(name: string): string {
+  return name.replace(/\.[^./]+$/, "")
+}
+
+/**
+ * Clipboard images all arrive named "image.png", so suffix every upload with a
+ * short timestamp to avoid silently overwriting a previous one. Also strip any
+ * characters that would be awkward in a path.
+ */
+function uniqueAssetName(original: string): string {
+  const dot = original.lastIndexOf(".")
+  const ext = dot > 0 ? original.slice(dot).toLowerCase() : ""
+  const base =
+    (dot > 0 ? original.slice(0, dot) : original)
+      .replace(/[^a-zA-Z0-9._-]+/g, "-")
+      .replace(/^-+|-+$/g, "") || "image"
+  return `${base}-${Date.now().toString(36)}${ext}`
+}
+
+/**
+ * Upload a dropped/pasted/picked file into `<baseDir>/<subdir>/<name>` via the
+ * shared upload endpoint, and return the path *relative to the note* so it
+ * serializes into the markdown as a portable link (e.g. `images/Note/pic.png`).
+ */
+async function uploadAsset(
+  file: File,
+  baseDir: string,
+  subdir: string
+): Promise<string> {
+  const name = uniqueAssetName(file.name)
+  const relativeToNote = `${subdir}/${name}`
+  const form = new FormData()
+  form.append("parentPath", baseDir)
+  form.append("files", file, name)
+  form.append("paths", relativeToNote)
+  const response = await fetch("/api/upload", { method: "POST", body: form })
+  if (!response.ok) {
+    throw new Error((await response.text()) || "Image upload failed")
+  }
+  return relativeToNote
+}
+
 /**
  * A Notion-style WYSIWYG editor for a chunk of markdown. Edits are serialized
  * back to markdown and persisted via `onSave` automatically, debounced a moment
@@ -47,24 +89,36 @@ function resolveRelative(baseDir: string, href: string): string {
  *
  * `baseDir` is the directory relative image links resolve against (the file's
  * folder for a file; omitted for row pages, which have no relative images).
+ * `docName` is the note's file name; when both it and `baseDir` are present,
+ * pasted/dropped images are uploaded to `<baseDir>/images/<docName>/`.
  */
 export default function MarkdownEditor({
   content,
   onSave,
   baseDir = "",
+  docName = "",
 }: {
   content: string
   onSave: (full: string) => Promise<void>
   baseDir?: string
+  docName?: string
 }) {
+  // Per-note asset folder, e.g. "images/README" for README.md. Only enabled
+  // for file-backed notes (which have a baseDir); row pages have nowhere local
+  // to put images and keep upload disabled.
+  const assetSubdir =
+    baseDir && docName ? `images/${stripExtension(docName)}` : ""
   const editor = useCreateBlockNote(
     {
       resolveFileUrl: async (url) =>
         isExternal(url) || !baseDir
           ? url
           : rawFileUrl(resolveRelative(baseDir, decodeURI(url))),
+      uploadFile: assetSubdir
+        ? (file) => uploadAsset(file, baseDir, assetSubdir)
+        : undefined,
     },
-    [baseDir]
+    [baseDir, assetSubdir]
   )
   const [ready, setReady] = React.useState(false)
   const [status, setStatus] = React.useState<SaveStatus>("idle")

@@ -210,6 +210,32 @@ export const createFolder = createServerFn({ method: "POST" })
     return { ok: true, path: nextPath }
   })
 
+export const createFile = createServerFn({ method: "POST" })
+  .inputValidator((data: { parentPath: string; name: string }) => data)
+  .handler(async ({ data }) => {
+    let name = validateEntryName(data.name)
+    // This action only creates markdown files — the extension is forced so
+    // the new file always opens in the markdown editor.
+    if (!name.toLowerCase().endsWith(".md")) {
+      name = `${name}.md`
+    }
+    if (data.parentPath) {
+      const parent = await findEntry(data.parentPath)
+      if (!parent.value || parent.value.type !== "dir") {
+        throw new Error("Destination folder was not found")
+      }
+    }
+    const nextPath = data.parentPath ? `${data.parentPath}/${name}` : name
+    const absolute = resolveRemotePath(nextPath)
+    await runRemote(
+      `if [ -e ${shellQuote(absolute)} ]; then ` +
+        `printf '%s\\n' 'An item with that name already exists' >&2; exit 1; ` +
+        `fi; : > ${shellQuote(absolute)}`
+    )
+    clearRemoteCache()
+    return { ok: true, path: nextPath }
+  })
+
 async function moveWithoutOverwrite(fromPath: string, toPath: string) {
   const fromAbsolute = resolveRemotePath(fromPath)
   const toAbsolute = resolveRemotePath(toPath)
