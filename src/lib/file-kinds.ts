@@ -1,4 +1,12 @@
-export type FileKind = "markdown" | "pdf" | "image" | "text" | "other"
+export type FileKind =
+  | "markdown"
+  | "pdf"
+  | "image"
+  | "text"
+  | "database"
+  | "other"
+
+const DATABASE_EXTENSIONS = new Set(["db", "sqlite", "sqlite3"])
 
 const IMAGE_EXTENSIONS = new Set([
   "png",
@@ -41,6 +49,7 @@ export function fileKindOf(name: string): FileKind {
   const ext = extensionOf(name)
   if (ext === "md" || ext === "mdx" || ext === "markdown") return "markdown"
   if (ext === "pdf") return "pdf"
+  if (DATABASE_EXTENSIONS.has(ext)) return "database"
   if (IMAGE_EXTENSIONS.has(ext)) return "image"
   if (TEXT_EXTENSIONS.has(ext)) return "text"
   return "other"

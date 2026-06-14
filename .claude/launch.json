@@ -5,8 +5,8 @@
       "name": "codex-explorer",
       "runtimeExecutable": "bun",
       "runtimeArgs": ["run", "dev"],
-      "cwd": "/Users/pierre-loicdeschaetzen/Documents/codex-explorer",
-      "port": 3001
+      "port": 3010,
+      "autoPort": true
     }
   ]
 }

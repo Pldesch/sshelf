@@ -3,7 +3,6 @@ import * as React from "react"
 import { BlockNoteView } from "@blocknote/mantine"
 import { useCreateBlockNote } from "@blocknote/react"
 import { CheckIcon, LoaderIcon, TriangleAlertIcon } from "lucide-react"
-import { saveFile } from "@/server/files"
 
 type SaveStatus = "idle" | "saving" | "saved" | "error"
 
@@ -26,20 +25,17 @@ function splitFrontmatter(content: string): {
 }
 
 /**
- * A Notion-style WYSIWYG editor for a single markdown file. Edits are
- * serialized back to markdown and saved over SSH automatically, debounced
- * a moment after typing stops. `onSaved` receives the full file contents
- * (frontmatter included) each time a save lands, so the parent can show the
- * up-to-date text without refetching from the server.
+ * A Notion-style WYSIWYG editor for a chunk of markdown. Edits are serialized
+ * back to markdown and persisted via `onSave` automatically, debounced a moment
+ * after typing stops. `onSave` receives the full content (frontmatter included)
+ * and should throw to signal a failure. Used for both files and per-row pages.
  */
 export default function MarkdownEditor({
-  path,
   content,
-  onSaved,
+  onSave,
 }: {
-  path: string
   content: string
-  onSaved?: (full: string) => void
+  onSave: (full: string) => Promise<void>
 }) {
   const editor = useCreateBlockNote()
   const [ready, setReady] = React.useState(false)
@@ -79,15 +75,14 @@ export default function MarkdownEditor({
     setStatus("saving")
     setErrorMessage(null)
     try {
-      await saveFile({ data: { path, content: full } })
+      await onSave(full)
       lastSavedFull.current = full
       setStatus("saved")
-      onSaved?.(full)
     } catch (error) {
       setStatus("error")
       setErrorMessage(error instanceof Error ? error.message : "Save failed")
     }
-  }, [editor, path, onSaved])
+  }, [editor, onSave])
 
   // Flush a pending save when the editor unmounts (e.g. the user clicks
   // Done or navigates away) so the last keystroke is never lost.

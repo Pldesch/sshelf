@@ -38,7 +38,7 @@ import {
   SidebarTrigger,
 } from "@/components/ui/sidebar"
 import { Skeleton } from "@/components/ui/skeleton"
-import { browsePath, getSshHosts, searchFiles } from "@/server/files"
+import { browsePath, getSshHosts, saveFile, searchFiles } from "@/server/files"
 import {
   fileKindOf,
   formatBytes,
@@ -55,6 +55,7 @@ import type { RemoteEntry, SearchResult, SshConfigHost } from "@/server/ssh"
 const MarkdownViewer = React.lazy(() => import("@/components/markdown-viewer"))
 const TextViewer = React.lazy(() => import("@/components/text-viewer"))
 const MarkdownEditor = React.lazy(() => import("@/components/markdown-editor"))
+const DatabaseView = React.lazy(() => import("@/components/database-view"))
 
 export type PageData =
   | BrowseResult
@@ -380,6 +381,10 @@ function FileView({ data }: { data: Extract<PageData, { kind: "file" }> }) {
         <PdfViewer path={data.path} />
       ) : kind === "image" ? (
         <ImageViewer path={data.path} />
+      ) : kind === "database" ? (
+        <React.Suspense fallback={<ViewerFallback />}>
+          <DatabaseView path={data.path} />
+        </React.Suspense>
       ) : (kind === "markdown" || kind === "text") && data.content === null ? (
         <Alert>
           <TriangleAlertIcon />
@@ -419,6 +424,14 @@ function MarkdownCard({ path, content }: { path: string; content: string }) {
     setText(content)
   }, [content])
 
+  const handleSave = React.useCallback(
+    async (full: string) => {
+      await saveFile({ data: { path, content: full } })
+      setText(full)
+    },
+    [path]
+  )
+
   return (
     // No horizontal padding here: in edit mode BlockNote supplies its own 54px
     // content gutter (room for the drag/＋ handles), and the read-only
@@ -426,12 +439,7 @@ function MarkdownCard({ path, content }: { path: string; content: string }) {
     <div className="rounded-xl bg-card py-7 shadow-sm">
       {mounted ? (
         <React.Suspense fallback={<MarkdownReadOnly path={path} text={text} />}>
-          <MarkdownEditor
-            key={path}
-            path={path}
-            content={text}
-            onSaved={setText}
-          />
+          <MarkdownEditor key={path} content={text} onSave={handleSave} />
         </React.Suspense>
       ) : (
         <MarkdownReadOnly path={path} text={text} />
