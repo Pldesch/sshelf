@@ -4,6 +4,7 @@ import {
   CopyIcon,
   DownloadIcon,
   FilePenLineIcon,
+  FilePlusIcon,
   FileUpIcon,
   FolderInputIcon,
   FolderPlusIcon,
@@ -30,6 +31,7 @@ import {
 import { Input } from "@/components/ui/input"
 import { Spinner } from "@/components/ui/spinner"
 import {
+  createFile,
   createFolder,
   deletePath,
   getTree,
@@ -75,6 +77,12 @@ export function EntryContextMenu({
   const [newFolderName, setNewFolderName] = React.useState("")
   const [creating, setCreating] = React.useState(false)
   const [createError, setCreateError] = React.useState<string | null>(null)
+  const [createFileOpen, setCreateFileOpen] = React.useState(false)
+  const [newFileName, setNewFileName] = React.useState("")
+  const [creatingFile, setCreatingFile] = React.useState(false)
+  const [createFileError, setCreateFileError] = React.useState<string | null>(
+    null
+  )
   const [uploadOpen, setUploadOpen] = React.useState(false)
   const [uploading, setUploading] = React.useState(false)
   const [uploadError, setUploadError] = React.useState<string | null>(null)
@@ -207,6 +215,28 @@ export function EntryContextMenu({
       )
     } finally {
       setCreating(false)
+    }
+  }
+
+  async function confirmCreateFile() {
+    if (creatingFile) return
+    setCreatingFile(true)
+    setCreateFileError(null)
+    try {
+      const result = await createFile({
+        data: { parentPath: entry.path, name: newFileName },
+      })
+      setCreateFileOpen(false)
+      refreshTree()
+      await router.invalidate()
+      // Open the new file straight away in the markdown editor.
+      await navigateToPath(result.path)
+    } catch (err) {
+      setCreateFileError(
+        err instanceof Error ? err.message : "Could not create file"
+      )
+    } finally {
+      setCreatingFile(false)
     }
   }
 
@@ -350,6 +380,16 @@ export function EntryContextMenu({
               >
                 <FolderPlusIcon />
                 New folder…
+              </ContextMenuItem>
+              <ContextMenuItem
+                onSelect={() => {
+                  setNewFileName("")
+                  setCreateFileError(null)
+                  setCreateFileOpen(true)
+                }}
+              >
+                <FilePlusIcon />
+                New markdown file…
               </ContextMenuItem>
               <ContextMenuItem
                 onSelect={() => {
@@ -625,6 +665,60 @@ export function EntryContextMenu({
               >
                 {creating && <Spinner data-icon="inline-start" />}
                 {creating ? "Creating…" : "Create folder"}
+              </Button>
+            </AlertDialogFooter>
+          </form>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={createFileOpen} onOpenChange={setCreateFileOpen}>
+        <AlertDialogContent>
+          <form
+            className="contents"
+            onSubmit={(event) => {
+              event.preventDefault()
+              void confirmCreateFile()
+            }}
+          >
+            <AlertDialogHeader>
+              <AlertDialogTitle>New markdown file in “{name}”</AlertDialogTitle>
+              <AlertDialogDescription>
+                Enter a name for the new file. The “.md” extension is added
+                automatically.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <div className="flex items-center gap-2">
+              <Input
+                value={newFileName}
+                onChange={(event) =>
+                  // Strip any ".md" the user types — the suffix is fixed.
+                  setNewFileName(event.target.value.replace(/\.md$/i, ""))
+                }
+                aria-label="New markdown file name"
+                placeholder="file name"
+                disabled={creatingFile}
+                autoFocus
+                className="flex-1"
+              />
+              <span className="font-mono text-sm text-muted-foreground">
+                .md
+              </span>
+            </div>
+            {createFileError && (
+              <p className="font-mono text-xs break-all text-destructive">
+                {createFileError}
+              </p>
+            )}
+            <AlertDialogFooter>
+              <AlertDialogCancel type="button" disabled={creatingFile}>
+                Cancel
+              </AlertDialogCancel>
+              <Button
+                type="submit"
+                disabled={creatingFile || newFileName.trim() === ""}
+              >
+                {creatingFile && <Spinner data-icon="inline-start" />}
+                {creatingFile ? "Creating…" : "Create file"}
               </Button>
             </AlertDialogFooter>
           </form>
