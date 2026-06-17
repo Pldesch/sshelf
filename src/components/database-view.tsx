@@ -436,9 +436,7 @@ export default function DatabaseView({ path }: { path: string }) {
     patchPage((p) => ({
       ...p,
       rows: p.rows.map((r) =>
-        r.rowid === rowid
-          ? { ...r, cells: { ...r.cells, [column]: value } }
-          : r
+        r.rowid === rowid ? { ...r, cells: { ...r.cells, [column]: value } } : r
       ),
     }))
     setMutationError(null)

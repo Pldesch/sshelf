@@ -64,11 +64,7 @@ export function dbTablesQueryOptions(path: string) {
   })
 }
 
-export function dbTableQueryOptions(
-  path: string,
-  table: string,
-  offset = 0
-) {
+export function dbTableQueryOptions(path: string, table: string, offset = 0) {
   return queryOptions({
     queryKey: ["db", "table", path, table, offset] as const,
     queryFn: () => readDatabaseTable({ data: { path, table, offset } }),
