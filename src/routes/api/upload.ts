@@ -35,7 +35,9 @@ export const Route = createFileRoute("/api/upload")({
         }
 
         const parentPath = String(form.get("parentPath") ?? "")
-        const files = form.getAll("files").filter((v): v is File => v instanceof File)
+        const files = form
+          .getAll("files")
+          .filter((v): v is File => v instanceof File)
         const paths = form.getAll("paths").map((v) => String(v))
         if (files.length === 0) {
           return new Response("No files to upload", { status: 400 })

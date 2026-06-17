@@ -1,6 +1,11 @@
 import * as React from "react"
 import { useNavigate, useRouter } from "@tanstack/react-router"
-import { CheckIcon, FolderTree, ServerIcon, TriangleAlertIcon } from "lucide-react"
+import {
+  CheckIcon,
+  FolderTree,
+  ServerIcon,
+  TriangleAlertIcon,
+} from "lucide-react"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import {
@@ -56,14 +61,17 @@ export function SetupScreen({
   }
 
   return (
-    <div className="bg-background flex min-h-svh items-center justify-center p-6">
+    <div className="flex min-h-svh items-center justify-center bg-background p-6">
       <div className="flex w-full max-w-md flex-col gap-6">
         <div className="flex flex-col items-center gap-3 text-center">
-          <FolderTree className="size-14 text-[var(--orange-500)]" aria-hidden />
+          <FolderTree
+            className="size-14 text-[var(--orange-500)]"
+            aria-hidden
+          />
           <h1 className="text-2xl font-semibold text-[var(--navy-700)]">
             Choose your server
           </h1>
-          <p className="text-muted-foreground text-sm text-balance">
+          <p className="text-sm text-balance text-muted-foreground">
             These are the SSH servers set up on this computer (from{" "}
             <code className="font-mono text-xs">~/.ssh/config</code>). Pick the
             one you want to browse — you can change it later.
@@ -71,7 +79,7 @@ export function SetupScreen({
         </div>
 
         {hosts.length === 0 ? (
-          <Empty className="bg-card rounded-xl shadow-sm">
+          <Empty className="rounded-xl bg-card shadow-sm">
             <EmptyHeader>
               <EmptyMedia variant="icon">
                 <ServerIcon />
@@ -84,7 +92,7 @@ export function SetupScreen({
             </EmptyHeader>
           </Empty>
         ) : (
-          <div className="bg-card flex flex-col rounded-xl shadow-sm">
+          <div className="flex flex-col rounded-xl bg-card shadow-sm">
             {hosts.map((host, index) => {
               const isSelected = selected === host.alias
               return (
@@ -98,7 +106,7 @@ export function SetupScreen({
                     index === hosts.length - 1 && "rounded-b-xl",
                     isSelected
                       ? "bg-[var(--orange-100)]"
-                      : "hover:bg-[var(--sand-100)]",
+                      : "hover:bg-[var(--sand-100)]"
                   )}
                 >
                   <span
@@ -106,7 +114,7 @@ export function SetupScreen({
                       "flex size-9 items-center justify-center rounded-lg",
                       isSelected
                         ? "bg-[var(--orange-500)] text-white"
-                        : "bg-muted text-[var(--navy-500)]",
+                        : "bg-muted text-[var(--navy-500)]"
                     )}
                   >
                     {isSelected ? (
@@ -120,7 +128,7 @@ export function SetupScreen({
                       {host.alias}
                     </span>
                     {(host.user || host.hostName) && (
-                      <span className="text-muted-foreground block truncate font-mono text-[11px]">
+                      <span className="block truncate font-mono text-[11px] text-muted-foreground">
                         {host.user ? `${host.user}@` : ""}
                         {host.hostName ?? ""}
                       </span>

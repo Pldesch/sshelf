@@ -23,14 +23,14 @@ const expandedFolders = new Map<string, boolean>()
 
 function childrenOf(
   entries: Array<RemoteEntry>,
-  path: string,
+  path: string
 ): Array<RemoteEntry> {
   const prefix = path ? `${path}/` : ""
   return entries.filter(
     (entry) =>
       entry.path.startsWith(prefix) &&
       entry.path !== path &&
-      !entry.path.slice(prefix.length).includes("/"),
+      !entry.path.slice(prefix.length).includes("/")
   )
 }
 
@@ -49,7 +49,7 @@ function FolderNode({
     expandedFolders.get(entry.path) ??
       (defaultOpen ||
         activePath === entry.path ||
-        activePath.startsWith(`${entry.path}/`)),
+        activePath.startsWith(`${entry.path}/`))
   )
 
   function handleOpenChange(next: boolean) {
@@ -136,7 +136,7 @@ function TreeLevel({
           />
         ) : (
           <FileNode key={entry.path} entry={entry} activePath={activePath} />
-        ),
+        )
       )}
     </>
   )

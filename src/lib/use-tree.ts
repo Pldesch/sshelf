@@ -62,7 +62,7 @@ export function useTree() {
   const snapshot = React.useSyncExternalStore(
     subscribe,
     () => store,
-    () => store,
+    () => store
   )
 
   React.useEffect(() => {

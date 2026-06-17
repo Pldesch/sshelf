@@ -55,7 +55,7 @@ export default function MarkdownViewer({
   const baseDir = parentOf(path)
   const body = stripFrontmatter(content)
   return (
-    <article className="prose prose-stone max-w-none prose-headings:text-[var(--navy-700)] prose-a:text-[var(--navy-600)] prose-a:font-medium prose-code:rounded prose-code:bg-[var(--stone-100)] prose-code:px-1 prose-code:py-0.5 prose-code:font-normal prose-code:before:content-none prose-code:after:content-none prose-pre:bg-[var(--navy-800)] prose-pre:text-[var(--navy-100)] prose-blockquote:border-l-[var(--orange-300)] prose-blockquote:font-normal prose-th:text-[var(--navy-700)] prose-hr:border-[var(--stone-200)]">
+    <article className="prose max-w-none prose-stone prose-headings:text-[var(--navy-700)] prose-a:font-medium prose-a:text-[var(--navy-600)] prose-blockquote:border-l-[var(--orange-300)] prose-blockquote:font-normal prose-code:rounded prose-code:bg-[var(--stone-100)] prose-code:px-1 prose-code:py-0.5 prose-code:font-normal prose-code:before:content-none prose-code:after:content-none prose-pre:bg-[var(--navy-800)] prose-pre:text-[var(--navy-100)] prose-th:text-[var(--navy-700)] prose-hr:border-[var(--stone-200)]">
       <Markdown
         remarkPlugins={REMARK_PLUGINS}
         rehypePlugins={REHYPE_PLUGINS}
@@ -73,7 +73,9 @@ export default function MarkdownViewer({
             return (
               <Link
                 to="/$"
-                params={{ _splat: resolveRelative(baseDir, decodeURI(pathPart)) }}
+                params={{
+                  _splat: resolveRelative(baseDir, decodeURI(pathPart)),
+                }}
               >
                 {children}
               </Link>

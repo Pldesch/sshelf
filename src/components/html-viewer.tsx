@@ -19,7 +19,7 @@ export default function HtmlViewer({
   const [mode, setMode] = React.useState<Mode>("preview")
   return (
     <div className="flex flex-col gap-3">
-      <div className="bg-muted flex items-center gap-1 self-end rounded-lg p-1">
+      <div className="flex items-center gap-1 self-end rounded-lg bg-muted p-1">
         <ModeButton
           active={mode === "preview"}
           onClick={() => setMode("preview")}
@@ -27,7 +27,10 @@ export default function HtmlViewer({
           <EyeIcon data-icon="inline-start" />
           Preview
         </ModeButton>
-        <ModeButton active={mode === "source"} onClick={() => setMode("source")}>
+        <ModeButton
+          active={mode === "source"}
+          onClick={() => setMode("source")}
+        >
           <CodeIcon data-icon="inline-start" />
           Source
         </ModeButton>
@@ -44,7 +47,7 @@ export default function HtmlViewer({
       ) : content !== null ? (
         <TextViewer path={path} content={content} />
       ) : (
-        <p className="text-muted-foreground text-sm">
+        <p className="text-sm text-muted-foreground">
           The source is too large to display. Switch to Preview, or download the
           file to read it on your computer.
         </p>

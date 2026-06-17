@@ -1,6 +1,10 @@
 import { Link } from "@tanstack/react-router"
 import { ArrowLeftRightIcon, FolderTree, RefreshCwIcon } from "lucide-react"
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"
 import {
   Sidebar,
   SidebarContent,
@@ -32,10 +36,7 @@ export function AppSidebar({ activePath }: { activePath: string }) {
             Files
           </SidebarGroupLabel>
           <SidebarGroupContent>
-            <FileTree
-              entries={tree?.entries ?? null}
-              activePath={activePath}
-            />
+            <FileTree entries={tree?.entries ?? null} activePath={activePath} />
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>

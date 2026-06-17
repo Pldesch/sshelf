@@ -1,8 +1,8 @@
 "use client"
 
 import * as React from "react"
-import { cva  } from "class-variance-authority"
-import type {VariantProps} from "class-variance-authority";
+import { cva } from "class-variance-authority"
+import type { VariantProps } from "class-variance-authority"
 import { Slot } from "radix-ui"
 
 import { useIsMobile } from "@/hooks/use-mobile"
@@ -358,7 +358,9 @@ function SidebarResizeHandle({ side }: { side: "left" | "right" }) {
 
     function handlePointerMove(moveEvent: PointerEvent) {
       const delta =
-        side === "left" ? moveEvent.clientX - startX : startX - moveEvent.clientX
+        side === "left"
+          ? moveEvent.clientX - startX
+          : startX - moveEvent.clientX
       nextWidth = clampSidebarWidth(startWidth + delta)
       if (animationFrame) return
       animationFrame = window.requestAnimationFrame(() => {
@@ -401,7 +403,7 @@ function SidebarResizeHandle({ side }: { side: "left" | "right" }) {
       role="separator"
       onPointerDown={handlePointerDown}
       className={cn(
-        "absolute inset-y-0 z-30 hidden w-2 cursor-col-resize touch-none transition-colors after:absolute after:inset-y-0 after:left-1/2 after:w-px after:-translate-x-1/2 after:bg-transparent hover:after:bg-sidebar-ring focus-visible:after:bg-sidebar-ring focus-visible:outline-hidden md:block",
+        "absolute inset-y-0 z-30 hidden w-2 cursor-col-resize touch-none transition-colors after:absolute after:inset-y-0 after:left-1/2 after:w-px after:-translate-x-1/2 after:bg-transparent hover:after:bg-sidebar-ring focus-visible:outline-hidden focus-visible:after:bg-sidebar-ring md:block",
         side === "left" ? "-right-1" : "-left-1",
         "group-data-[state=collapsed]:hidden"
       )}
