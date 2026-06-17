@@ -1,6 +1,6 @@
 import * as React from "react"
 import { useNavigate, useRouter } from "@tanstack/react-router"
-import { CheckIcon, ServerIcon, TriangleAlertIcon } from "lucide-react"
+import { CheckIcon, FolderTree, ServerIcon, TriangleAlertIcon } from "lucide-react"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import {
@@ -59,7 +59,7 @@ export function SetupScreen({
     <div className="bg-background flex min-h-svh items-center justify-center p-6">
       <div className="flex w-full max-w-md flex-col gap-6">
         <div className="flex flex-col items-center gap-3 text-center">
-          <img src="/tommy-icon.png" alt="" className="size-14" />
+          <FolderTree className="size-14 text-[var(--orange-500)]" aria-hidden />
           <h1 className="text-2xl font-semibold text-[var(--navy-700)]">
             Choose your server
           </h1>

@@ -1,5 +1,5 @@
 import { Link } from "@tanstack/react-router"
-import { ArrowLeftRightIcon, RefreshCwIcon } from "lucide-react"
+import { ArrowLeftRightIcon, FolderTree, RefreshCwIcon } from "lucide-react"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import {
   Sidebar,
@@ -20,7 +20,7 @@ export function AppSidebar({ activePath }: { activePath: string }) {
     <Sidebar>
       <SidebarHeader className="p-4">
         <Link to="/" className="flex items-center gap-2.5 px-1">
-          <img src="/tommy-icon-light.png" alt="" className="size-7" />
+          <FolderTree className="size-7 text-[var(--paper)]" aria-hidden />
           <span className="text-base font-semibold tracking-tight text-[var(--paper)]">
             Explorer
           </span>
@@ -41,7 +41,7 @@ export function AppSidebar({ activePath }: { activePath: string }) {
       </SidebarContent>
       <SidebarFooter className="p-4">
         <div className="flex items-center gap-3 rounded-lg bg-[var(--navy-700)] p-3">
-          <img src="/tommy-icon-light.png" alt="" className="size-8" />
+          <FolderTree className="size-8 text-[var(--paper)]" aria-hidden />
           <div className="flex min-w-0 flex-1 flex-col gap-1">
             <span className="truncate text-[13px] leading-none font-semibold text-[var(--paper)]">
               {tree?.host ?? "…"}
