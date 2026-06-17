@@ -1,3 +1,13 @@
+node_modules
+dist
+dist-ssr
+release
+build
+.tanstack
+.output
+.claude
+bun.lock
 package-lock.json
 pnpm-lock.yaml
 yarn.lock
+src/routeTree.gen.ts
