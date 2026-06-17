@@ -1,6 +1,7 @@
 import * as React from "react"
 import { Popover } from "radix-ui"
 import { useHotkey } from "@tanstack/react-hotkeys"
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import {
   ArrowDownIcon,
   ArrowUpDownIcon,
@@ -24,15 +25,17 @@ import {
   addDatabaseRow,
   deleteDatabaseRow,
   dropDatabaseColumn,
-  listDatabaseTables,
-  readDatabaseTable,
-  readDatabaseView,
-  readRowBody,
   saveDatabaseView,
   saveRowBody,
   setColumnType,
   updateDatabaseCell,
 } from "@/server/database"
+import {
+  dbTableQueryOptions,
+  dbTablesQueryOptions,
+  dbViewQueryOptions,
+  rowBodyQueryOptions,
+} from "@/lib/queries"
 import {
   Sheet,
   SheetContent,
@@ -210,12 +213,9 @@ function Chip({ name, color }: { name: string; color: string }) {
 }
 
 export default function DatabaseView({ path }: { path: string }) {
-  const [tables, setTables] = React.useState<Array<string> | null>(null)
+  const queryClient = useQueryClient()
   const [active, setActive] = React.useState<string | null>(null)
-  const [page, setPage] = React.useState<DbTablePage | null>(null)
-  const [error, setError] = React.useState<string | null>(null)
   const [mutationError, setMutationError] = React.useState<string | null>(null)
-  const [loading, setLoading] = React.useState(true)
   const [busy, setBusy] = React.useState(false)
   const [openRowId, setOpenRowId] = React.useState<number | null>(null)
   const [search, setSearch] = React.useState("")
@@ -227,6 +227,58 @@ export default function DatabaseView({ path }: { path: string }) {
   const searchRef = React.useRef<HTMLInputElement>(null)
   // JSON of the last loaded/saved view config, so we only persist real changes.
   const savedViewJson = React.useRef<string>("")
+
+  // ── server reads (React Query) ────────────────────────────────────────────
+  const tablesQuery = useQuery(dbTablesQueryOptions(path))
+  const tables = tablesQuery.data ?? null
+  const tableQuery = useQuery({
+    ...dbTableQueryOptions(path, active ?? ""),
+    enabled: !!active,
+  })
+  const page = tableQuery.data ?? null
+  const viewQuery = useQuery({
+    ...dbViewQueryOptions(path, active ?? ""),
+    enabled: !!active,
+  })
+
+  // The "open the database" error is the table-list read failing; once tables
+  // load, a failed row-page read also surfaces here (same as the old loader).
+  const error = tablesQuery.error
+    ? errorMessage(tablesQuery.error)
+    : tableQuery.error
+      ? errorMessage(tableQuery.error)
+      : null
+  // Loading the first paint: tables still loading, or the database has tables
+  // but the active table's page hasn't arrived yet (covers the brief gap before
+  // `active` is selected). The "no tables" case is not loading.
+  const loading =
+    !error &&
+    (tablesQuery.isLoading || (!!tables && tables.length > 0 && page === null))
+
+  // Optimistically patch the cached table page (replaces the old setPage).
+  const patchPage = React.useCallback(
+    (fn: (p: DbTablePage) => DbTablePage) => {
+      if (!active) return
+      queryClient.setQueryData<DbTablePage>(
+        dbTableQueryOptions(path, active).queryKey,
+        (p) => (p ? fn(p) : p)
+      )
+    },
+    [queryClient, path, active]
+  )
+
+  // Keep `active` in sync with the loaded table list: pick the first table when
+  // nothing is selected or the selection vanished (e.g. after a column reload).
+  React.useEffect(() => {
+    if (!tables) return
+    if (tables.length === 0) {
+      if (active !== null) setActive(null)
+      return
+    }
+    if (!active || !tables.includes(active)) {
+      setActive(tables[0])
+    }
+  }, [tables, active])
 
   // ⌘F / Ctrl+F expands the (collapsed) table search and focuses it, instead
   // of the browser's find bar. Registered only while a database is open.
@@ -258,29 +310,40 @@ export default function DatabaseView({ path }: { path: string }) {
     setGroupBy(defaults.groupBy)
     setSort(defaults.sort)
     setFilters(defaults.filters)
-    if (!active) return
-    let cancelled = false
-    readDatabaseView({ data: { path, table: active } })
-      .then((result) => {
-        if (cancelled || !result.config) return
-        const stored = JSON.parse(result.config) as Partial<StoredView>
-        const normalized: StoredView = {
-          view: stored.view ?? "table",
-          groupBy: stored.groupBy ?? null,
-          sort: stored.sort ?? null,
-          filters: stored.filters ?? [],
-        }
-        savedViewJson.current = JSON.stringify(normalized)
-        setView(normalized.view)
-        setGroupBy(normalized.groupBy)
-        setSort(normalized.sort)
-        setFilters(normalized.filters)
-      })
-      .catch(() => {})
-    return () => {
-      cancelled = true
-    }
   }, [path, active])
+
+  // Apply the stored view config once the read for the active table arrives.
+  // Driven by viewQuery.data (keyed on path+active) instead of an inline .then;
+  // savedViewJson is updated so the persist-effect doesn't re-save it.
+  React.useEffect(() => {
+    if (!active) return
+    const config = viewQuery.data?.config
+    if (!config) return
+    const stored = JSON.parse(config) as Partial<StoredView>
+    const normalized: StoredView = {
+      view: stored.view ?? "table",
+      groupBy: stored.groupBy ?? null,
+      sort: stored.sort ?? null,
+      filters: stored.filters ?? [],
+    }
+    savedViewJson.current = JSON.stringify(normalized)
+    setView(normalized.view)
+    setGroupBy(normalized.groupBy)
+    setSort(normalized.sort)
+    setFilters(normalized.filters)
+  }, [path, active, viewQuery.data])
+
+  const saveViewMutation = useMutation({
+    mutationFn: (vars: { table: string; config: string }) =>
+      saveDatabaseView({
+        data: { path, table: vars.table, config: vars.config },
+      }),
+    onSettled: (_data, _err, vars) => {
+      void queryClient.invalidateQueries({
+        queryKey: dbViewQueryOptions(path, vars.table).queryKey,
+      })
+    },
+  })
 
   // Persist the view (debounced) whenever it differs from the loaded baseline.
   React.useEffect(() => {
@@ -289,7 +352,7 @@ export default function DatabaseView({ path }: { path: string }) {
     if (json === savedViewJson.current) return
     const timer = setTimeout(() => {
       savedViewJson.current = json
-      void saveDatabaseView({ data: { path, table: active, config: json } })
+      saveViewMutation.mutate({ table: active, config: json })
     }, 500)
     return () => clearTimeout(timer)
   }, [path, active, view, groupBy, sort, filters])
@@ -312,58 +375,56 @@ export default function DatabaseView({ path }: { path: string }) {
     }
   }, [groupableColumns, groupBy])
 
-  React.useEffect(() => {
-    let cancelled = false
-    setError(null)
-    setTables(null)
-    setActive(null)
-    setPage(null)
-    setLoading(true)
-    listDatabaseTables({ data: { path } })
-      .then((list) => {
-        if (cancelled) return
-        setTables(list)
-        setActive(list[0] ?? null)
-        if (list.length === 0) setLoading(false)
-      })
-      .catch((err) => {
-        if (cancelled) return
-        setError(errorMessage(err))
-        setLoading(false)
-      })
-    return () => {
-      cancelled = true
-    }
-  }, [path])
-
-  const loadTable = React.useCallback(
-    async (background = false) => {
-      if (!active) return
-      if (!background) setLoading(true)
-      setError(null)
-      try {
-        const result = await readDatabaseTable({
-          data: { path, table: active },
-        })
-        setPage(result)
-      } catch (err) {
-        setError(errorMessage(err))
-      } finally {
-        if (!background) setLoading(false)
-      }
-    },
-    [path, active]
-  )
-
-  React.useEffect(() => {
-    void loadTable(false)
-  }, [loadTable])
-
   const displayRows = React.useMemo(
     () =>
       page ? applyView(page.rows, page.columns, { search, filters, sort }) : [],
     [page, search, filters, sort]
   )
+
+  // ── mutations (React Query) ───────────────────────────────────────────────
+  // Invalidate just the active table's page after a write touches its rows.
+  const invalidateTable = React.useCallback(() => {
+    if (!active) return
+    void queryClient.invalidateQueries({
+      queryKey: dbTableQueryOptions(path, active).queryKey,
+    })
+  }, [queryClient, path, active])
+  // Column add/drop can change the schema *and* the table set, so refresh both.
+  const invalidateTableAndTables = React.useCallback(() => {
+    invalidateTable()
+    void queryClient.invalidateQueries({
+      queryKey: dbTablesQueryOptions(path).queryKey,
+    })
+  }, [invalidateTable, queryClient, path])
+
+  const cellMutation = useMutation({
+    mutationFn: updateDatabaseCell,
+    onSettled: invalidateTable,
+  })
+  const optionMutation = useMutation({
+    mutationFn: addColumnOption,
+    onSettled: invalidateTable,
+  })
+  const addRowMutation = useMutation({
+    mutationFn: addDatabaseRow,
+    onSettled: invalidateTable,
+  })
+  const deleteRowMutation = useMutation({
+    mutationFn: deleteDatabaseRow,
+    onSettled: invalidateTable,
+  })
+  const setTypeMutation = useMutation({
+    mutationFn: setColumnType,
+    onSettled: invalidateTable,
+  })
+  const addColumnMutation = useMutation({
+    mutationFn: addDatabaseColumn,
+    onSettled: invalidateTableAndTables,
+  })
+  const dropColumnMutation = useMutation({
+    mutationFn: dropDatabaseColumn,
+    onSettled: invalidateTableAndTables,
+  })
 
   async function saveCell(rowid: number, column: string, raw: string) {
     if (!active) return
@@ -372,37 +433,29 @@ export default function DatabaseView({ path }: { path: string }) {
     // cell — never a whole-page snapshot that would clobber concurrent edits.
     const prevCellValue: DbValue =
       page?.rows.find((r) => r.rowid === rowid)?.cells[column] ?? null
-    setPage((p) =>
-      p
-        ? {
-            ...p,
-            rows: p.rows.map((r) =>
-              r.rowid === rowid
-                ? { ...r, cells: { ...r.cells, [column]: value } }
-                : r
-            ),
-          }
-        : p
-    )
+    patchPage((p) => ({
+      ...p,
+      rows: p.rows.map((r) =>
+        r.rowid === rowid
+          ? { ...r, cells: { ...r.cells, [column]: value } }
+          : r
+      ),
+    }))
     setMutationError(null)
     try {
-      await updateDatabaseCell({
+      await cellMutation.mutateAsync({
         data: { path, table: active, rowid, column, value },
       })
     } catch (err) {
       setMutationError(errorMessage(err))
-      setPage((p) =>
-        p
-          ? {
-              ...p,
-              rows: p.rows.map((r) =>
-                r.rowid === rowid
-                  ? { ...r, cells: { ...r.cells, [column]: prevCellValue } }
-                  : r
-              ),
-            }
-          : p
-      )
+      patchPage((p) => ({
+        ...p,
+        rows: p.rows.map((r) =>
+          r.rowid === rowid
+            ? { ...r, cells: { ...r.cells, [column]: prevCellValue } }
+            : r
+        ),
+      }))
     }
   }
 
@@ -410,32 +463,31 @@ export default function DatabaseView({ path }: { path: string }) {
   // persist it. A full reload would close the popover mid-interaction.
   async function createOption(column: string, name: string) {
     if (!active) return
-    setPage((p) =>
-      p
-        ? {
-            ...p,
-            columns: p.columns.map((c) =>
-              c.name === column && !c.options.some((o) => o.name === name)
-                ? { ...c, options: [...c.options, { name, color: "default" }] }
-                : c
-            ),
-          }
-        : p
-    )
+    patchPage((p) => ({
+      ...p,
+      columns: p.columns.map((c) =>
+        c.name === column && !c.options.some((o) => o.name === name)
+          ? { ...c, options: [...c.options, { name, color: "default" }] }
+          : c
+      ),
+    }))
     try {
-      await addColumnOption({ data: { path, table: active, column, name } })
+      await optionMutation.mutateAsync({
+        data: { path, table: active, column, name },
+      })
     } catch (err) {
       setMutationError(errorMessage(err))
     }
   }
 
+  // Run a (non-optimistic) mutation, tracking the shared busy/error indicators.
+  // Each mutation's own onSettled handles cache invalidation.
   async function runMutation(fn: () => Promise<unknown>) {
     if (!active) return
     setBusy(true)
     setMutationError(null)
     try {
       await fn()
-      await loadTable(true)
     } catch (err) {
       setMutationError(errorMessage(err))
     } finally {
@@ -550,7 +602,7 @@ export default function DatabaseView({ path }: { path: string }) {
             onMoveCard={(rowid, value) => saveCell(rowid, groupBy, value)}
             onAddCard={(value) =>
               runMutation(() =>
-                addDatabaseRow({
+                addRowMutation.mutateAsync({
                   data: {
                     path,
                     table: page.table,
@@ -579,31 +631,35 @@ export default function DatabaseView({ path }: { path: string }) {
           onOpenRow={setOpenRowId}
           onSetType={(column, kind, options) =>
             runMutation(() =>
-              setColumnType({
+              setTypeMutation.mutateAsync({
                 data: { path, table: page.table, column, kind, options },
               })
             )
           }
           onDropColumn={(column) =>
             runMutation(() =>
-              dropDatabaseColumn({ data: { path, table: page.table, column } })
+              dropColumnMutation.mutateAsync({
+                data: { path, table: page.table, column },
+              })
             )
           }
           onAddColumn={(name, kind) =>
             runMutation(() =>
-              addDatabaseColumn({
+              addColumnMutation.mutateAsync({
                 data: { path, table: page.table, name, kind },
               })
             )
           }
           onAddRow={() =>
             runMutation(() =>
-              addDatabaseRow({ data: { path, table: page.table } })
+              addRowMutation.mutateAsync({ data: { path, table: page.table } })
             )
           }
           onDeleteRow={(rowid) =>
             runMutation(() =>
-              deleteDatabaseRow({ data: { path, table: page.table, rowid } })
+              deleteRowMutation.mutateAsync({
+                data: { path, table: page.table, rowid },
+              })
             )
           }
         />
@@ -1278,26 +1334,23 @@ function RowPage({
     ) ??
     page.columns[0]
   const title = row ? displayText(row.cells[titleColumn.name]).text : ""
-  const [body, setBody] = React.useState<string | null>(null)
+  const queryClient = useQueryClient()
+  const bodyQuery = useQuery(rowBodyQueryOptions(path, page.table, rowid))
+  // Preserve the old loading/empty behaviour: null while loading, "" on error.
+  const body = bodyQuery.isError ? "" : (bodyQuery.data?.body ?? null)
 
-  React.useEffect(() => {
-    let cancelled = false
-    setBody(null)
-    readRowBody({ data: { path, table: page.table, rowid } })
-      .then((r) => {
-        if (!cancelled) setBody(r.body)
+  const saveBodyMutation = useMutation({
+    mutationFn: saveRowBody,
+    onSettled: () => {
+      void queryClient.invalidateQueries({
+        queryKey: rowBodyQueryOptions(path, page.table, rowid).queryKey,
       })
-      .catch(() => {
-        if (!cancelled) setBody("")
-      })
-    return () => {
-      cancelled = true
-    }
-  }, [path, page.table, rowid])
+    },
+  })
 
   const saveBody = React.useCallback(
     async (full: string) => {
-      await saveRowBody({
+      await saveBodyMutation.mutateAsync({
         data: { path, table: page.table, rowid, body: full },
       })
     },
