@@ -38,7 +38,7 @@ import {
   moveEntry,
   renameFile,
 } from "@/server/files"
-import { refreshTree } from "@/lib/use-tree"
+import { refreshTree, useTree } from "@/lib/use-tree"
 import { nameOf, parentOf, rawFileUrl } from "@/lib/file-kinds"
 
 const ENTRY_DRAG_MIME = "application/x-codex-explorer-entry"
@@ -58,6 +58,8 @@ export function EntryContextMenu({
   const router = useRouter()
   const navigate = useNavigate()
   const location = useLocation()
+  const { tree } = useTree()
+  const root = tree?.root ?? ""
   const [confirmOpen, setConfirmOpen] = React.useState(false)
   const [renameOpen, setRenameOpen] = React.useState(false)
   const [moveOpen, setMoveOpen] = React.useState(false)
@@ -452,7 +454,9 @@ export function EntryContextMenu({
           </ContextMenuItem>
           <ContextMenuItem
             onSelect={() =>
-              navigator.clipboard.writeText(`/home/ubuntu/${entry.path}`)
+              navigator.clipboard.writeText(
+                root ? `${root}/${entry.path}` : entry.path
+              )
             }
           >
             <CopyIcon />
@@ -602,7 +606,7 @@ export function EntryContextMenu({
             >
               {destinationOptions.map((option) => (
                 <option key={option.path || "__root__"} value={option.path}>
-                  {option.path ? option.name : "/home/ubuntu"}
+                  {option.path ? option.name : root || "All files"}
                 </option>
               ))}
             </select>

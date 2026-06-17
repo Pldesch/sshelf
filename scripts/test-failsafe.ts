@@ -5,7 +5,9 @@ import { fetchTree, readRemoteFile, setSshHost } from "../src/server/ssh"
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
 
 // The module no longer assumes a default host — pick one explicitly.
-setSshHost("ovh-codex")
+// Override the real host with EXPLORER_SSH_HOST when running this test.
+const TEST_HOST = process.env.EXPLORER_SSH_HOST || "ovh-codex"
+setSshHost(TEST_HOST)
 
 async function timed<T>(label: string, fn: () => Promise<T>) {
   const t0 = performance.now()
@@ -55,7 +57,7 @@ await timed("offline readRemoteFile UNCACHED (expect fast error)", () =>
 )
 
 // 7. recovery
-setSshHost("ovh-codex")
+setSshHost(TEST_HOST)
 console.log("…waiting 11s for the circuit breaker to close…")
 await sleep(11_000)
 const back = await timed("recovered fetchTree", fetchTree)

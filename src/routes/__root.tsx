@@ -17,7 +17,7 @@ export const Route = createRootRoute({
         content: "width=device-width, initial-scale=1",
       },
       {
-        title: "Explorer — ovh-codex",
+        title: "Codex Explorer",
       },
     ],
     links: [
@@ -27,8 +27,8 @@ export const Route = createRootRoute({
       },
       {
         rel: "icon",
-        type: "image/png",
-        href: "/tommy-app-icon-light.png",
+        type: "image/x-icon",
+        href: "/favicon.ico",
       },
     ],
   }),
@@ -49,6 +49,8 @@ function RootDocument({ children }: { children: React.ReactNode }) {
       </head>
       <body>
         <TooltipProvider>{children}</TooltipProvider>
+        {/* The @tanstack/devtools-vite plugin strips this element (and its
+            imports) from production builds, so devtools render in dev only. */}
         <TanStackDevtools
           config={{
             position: "bottom-right",

@@ -48,6 +48,7 @@ import {
   rawFileUrl,
 } from "@/lib/file-kinds"
 import { useRemoteFileEvents } from "@/lib/use-file-events"
+import { useTree } from "@/lib/use-tree"
 import type { BrowseResult } from "@/server/files"
 import type { RemoteEntry, SearchResult, SshConfigHost } from "@/server/ssh"
 
@@ -146,6 +147,8 @@ function ExplorerShell({
   children: React.ReactNode
 }) {
   useRemoteFileEvents()
+  const { tree } = useTree()
+  const root = tree?.root ?? ""
   // Databases use the full width; prose (markdown/text) keeps a readable column.
   const fullWidth = file ? fileKindOf(nameOf(file.path)) === "database" : false
   return (
@@ -162,7 +165,7 @@ function ExplorerShell({
           {file && (
             <>
               <span
-                title={`/home/ubuntu/${file.path}`}
+                title={root ? `${root}/${file.path}` : file.path}
                 className="hidden font-mono text-[11px] whitespace-nowrap text-muted-foreground sm:inline"
               >
                 {formatBytes(file.size)} · {formatDate(file.modifiedAt)}
@@ -275,13 +278,16 @@ function DirectoryView({
   path: string
   entries: Array<RemoteEntry>
 }) {
+  const { tree } = useTree()
+  const root = tree?.root ?? ""
   const folderCount = entries.filter((e) => e.type === "dir").length
   const fileCount = entries.length - folderCount
+  const fullPath = path ? `${root}/${path}` : root || "All files"
   return (
     <>
       <CompactHeading
         title={path ? nameOf(path) : "All files"}
-        fullPath={`/home/ubuntu${path ? `/${path}` : ""}`}
+        fullPath={fullPath}
         meta={
           <>
             {folderCount} folder{folderCount === 1 ? "" : "s"} · {fileCount}{" "}
@@ -464,11 +470,17 @@ function SearchResults({
   query: string
   results: Array<SearchResult>
 }) {
+  const { tree } = useTree()
+  const root = tree?.root ?? ""
   return (
     <>
       <CompactHeading
         title={`Results for “${query}”`}
-        fullPath={`Search across /home/ubuntu for “${query}”`}
+        fullPath={
+          root
+            ? `Search across ${root} for “${query}”`
+            : `Search for “${query}”`
+        }
         meta={
           <>
             {results.length} match{results.length === 1 ? "" : "es"}

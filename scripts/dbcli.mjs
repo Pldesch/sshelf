@@ -15,7 +15,9 @@
  *
  * Target selection (where the db file lives):
  *   default     use the host saved in ~/.codex-explorer.json; relative paths
- *               resolve under /home/ubuntu (same as the app)
+ *               resolve under the remote root (same as the app), which
+ *               defaults to /home/ubuntu and is overridable via
+ *               EXPLORER_REMOTE_ROOT
  *   --host X    SSH to host alias X
  *   --local     run against the local filesystem (path relative to cwd)
  */
@@ -25,7 +27,7 @@ import { readFileSync } from "node:fs"
 import { homedir } from "node:os"
 import { join } from "node:path"
 
-const REMOTE_ROOT = "/home/ubuntu"
+const REMOTE_ROOT = process.env.EXPLORER_REMOTE_ROOT || "/home/ubuntu"
 const CONFIG_FILE = join(homedir(), ".codex-explorer.json")
 
 function fail(message) {

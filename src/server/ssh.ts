@@ -3,7 +3,9 @@ import { readFileSync, writeFileSync } from "node:fs"
 import { homedir } from "node:os"
 import { join } from "node:path"
 
-export const REMOTE_ROOT = "/home/ubuntu"
+// The remote directory the explorer is rooted at. Override with
+// EXPLORER_REMOTE_ROOT (should be an absolute path); defaults to /home/ubuntu.
+export const REMOTE_ROOT = process.env.EXPLORER_REMOTE_ROOT || "/home/ubuntu"
 
 /** Thrown (by message) when no SSH host has been chosen yet. */
 export const SETUP_REQUIRED = "SETUP_REQUIRED"
@@ -465,7 +467,7 @@ export async function searchRemote(
   // (NUL keeps paths with colons unambiguous) so we can show a snippet.
   try {
     const output = await runRemoteRaw(
-      `find ${shellQuote(REMOTE_ROOT)} -type d \\( -name '.*' ! \\( ${VISIBLE_DOT_DIRECTORY_TEST} \\) -o ${FIND_PRUNE_EXPRESSION} \\) -prune -o -type f \\( -name '*.md' -o -name '*.txt' -o -name '*.json' -o -name '*.jsonl' -o -name '*.html' \\) -print0 | xargs -0 grep -m1 -HIiZ -e ${shellQuote(cleaned)} 2>/dev/null | head -40`
+      `find ${shellQuote(REMOTE_ROOT)} -type d \\( -name '.*' ! \\( ${VISIBLE_DOT_DIRECTORY_TEST} \\) -o ${FIND_PRUNE_EXPRESSION} \\) -prune -o -type f ! -type l \\( -name '*.md' -o -name '*.txt' -o -name '*.json' -o -name '*.jsonl' -o -name '*.html' \\) -print0 | xargs -0 grep -m1 -HIiZ -e ${shellQuote(cleaned)} 2>/dev/null | head -40`
     )
     for (const record of output.toString("utf-8").split("\n")) {
       const nul = record.indexOf("\0")

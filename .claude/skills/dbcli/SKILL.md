@@ -22,8 +22,10 @@ node scripts/dbcli.mjs <command> <db> [args] [flags]
 
 ### Where the database lives
 - **default** — connects to the SSH host saved in `~/.codex-explorer.json`;
-  a relative `<db>` resolves under `/home/ubuntu` (same as the app). So
-  `crm.sqlite` means `/home/ubuntu/crm.sqlite` on that host.
+  a relative `<db>` resolves under the remote root (same as the app), which
+  defaults to `/home/ubuntu` and is overridable via `EXPLORER_REMOTE_ROOT`.
+  So with the default root, `crm.sqlite` means `/home/ubuntu/crm.sqlite` on
+  that host.
 - `--host <alias>` — use a specific SSH host from `~/.ssh/config`.
 - `--local` — operate on a local file (`<db>` is relative to the cwd).
 

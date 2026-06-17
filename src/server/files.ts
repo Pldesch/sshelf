@@ -1,5 +1,6 @@
 import { createServerFn } from "@tanstack/react-start"
 import {
+  REMOTE_ROOT,
   SshError,
   clearRemoteCache,
   fetchTree,
@@ -46,6 +47,8 @@ export interface TreeResult {
   entries: Array<RemoteEntry>
   stale: boolean
   host: string | null
+  /** Absolute remote root the entries are relative to (display use). */
+  root: string
 }
 
 export const getTree = createServerFn().handler(
@@ -55,6 +58,7 @@ export const getTree = createServerFn().handler(
       entries: sortEntries([...tree.value]),
       stale: tree.stale,
       host: getCurrentHost(),
+      root: REMOTE_ROOT,
     }
   }
 )
