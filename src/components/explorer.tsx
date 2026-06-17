@@ -38,7 +38,17 @@ import {
   SidebarTrigger,
 } from "@/components/ui/sidebar"
 import { Skeleton } from "@/components/ui/skeleton"
-import { browsePath, getSshHosts, saveFile, searchFiles } from "@/server/files"
+import {
+  useMutation,
+  useQueryClient,
+  useSuspenseQuery,
+} from "@tanstack/react-query"
+import { saveFile } from "@/server/files"
+import {
+  browseQueryOptions,
+  searchQueryOptions,
+  sshHostsQueryOptions,
+} from "@/lib/queries"
 import {
   fileKindOf,
   formatBytes,
@@ -49,8 +59,9 @@ import {
 } from "@/lib/file-kinds"
 import { useRemoteFileEvents } from "@/lib/use-file-events"
 import { useTree } from "@/lib/use-tree"
-import type { BrowseResult } from "@/server/files"
-import type { RemoteEntry, SearchResult, SshConfigHost } from "@/server/ssh"
+import type { QueryClient } from "@tanstack/react-query"
+import type { BrowseResult, FileView as FileData } from "@/server/files"
+import type { RemoteEntry, SearchResult } from "@/server/ssh"
 
 // Heavy renderers (react-markdown, highlight.js) load in their own chunk
 // so plain folder browsing never pays for them.
@@ -60,61 +71,75 @@ const MarkdownEditor = React.lazy(() => import("@/components/markdown-editor"))
 const DatabaseView = React.lazy(() => import("@/components/database-view"))
 const HtmlViewer = React.lazy(() => import("@/components/html-viewer"))
 
-export type PageData =
-  | BrowseResult
-  | { kind: "search"; query: string; results: Array<SearchResult> }
-  | { kind: "setup"; hosts: Array<SshConfigHost>; current: string | null }
+/** Which page to render; the data itself lives in the query cache. */
+export type PageDescriptor =
+  | { kind: "setup" }
+  | { kind: "search"; query: string }
+  | { kind: "browse"; path: string }
 
 function isSetupRequired(error: unknown): boolean {
   return error instanceof Error && error.message.includes("SETUP_REQUIRED")
 }
 
-export async function explorerLoader(options: {
-  path: string
-  q?: string
-  setup?: boolean
-}): Promise<PageData> {
+/**
+ * Prefetch the data the page needs into the query cache and return a small
+ * descriptor telling the component which query to read. Keeping the data in
+ * the cache (rather than returning it from the loader) lets components stay
+ * reactive to background refetches and invalidation while still getting an
+ * SSR-warmed, preloaded first paint.
+ */
+export async function explorerLoader(
+  queryClient: QueryClient,
+  options: { path: string; q?: string; setup?: boolean }
+): Promise<PageDescriptor> {
   if (options.setup) {
-    return { kind: "setup", ...(await getSshHosts()) }
+    await queryClient.ensureQueryData(sshHostsQueryOptions())
+    return { kind: "setup" }
   }
   try {
     if (options.q) {
-      return {
-        kind: "search",
-        query: options.q,
-        results: await searchFiles({ data: { query: options.q } }),
-      }
+      await queryClient.ensureQueryData(searchQueryOptions(options.q))
+      return { kind: "search", query: options.q }
     }
-    return await browsePath({ data: { path: options.path } })
+    await queryClient.ensureQueryData(browseQueryOptions(options.path))
+    return { kind: "browse", path: options.path }
   } catch (error) {
     // No server chosen yet — first-time use goes to the picker.
     if (isSetupRequired(error)) {
-      return { kind: "setup", ...(await getSshHosts()) }
+      await queryClient.ensureQueryData(sshHostsQueryOptions())
+      return { kind: "setup" }
     }
     throw error
   }
 }
 
-export function ExplorerView({
-  data,
-  path,
-  q,
-}: {
-  data: PageData
-  path: string
-  q?: string
-}) {
-  if (data.kind === "setup") {
-    return <SetupScreen hosts={data.hosts} current={data.current} />
-  }
+export function ExplorerView({ descriptor }: { descriptor: PageDescriptor }) {
+  if (descriptor.kind === "setup") return <SetupView />
+  if (descriptor.kind === "search")
+    return <SearchView query={descriptor.query} />
+  return <BrowseView path={descriptor.path} />
+}
 
+function SetupView() {
+  const { data } = useSuspenseQuery(sshHostsQueryOptions())
+  return <SetupScreen hosts={data.hosts} current={data.current} />
+}
+
+function SearchView({ query }: { query: string }) {
+  const { data } = useSuspenseQuery(searchQueryOptions(query))
   return (
-    <ExplorerShell
-      activePath={path}
-      currentQuery={q}
-      file={data.kind === "file" ? data : null}
-    >
-      {data.kind !== "search" && data.stale && (
+    <ExplorerShell activePath="" currentQuery={query} file={null}>
+      <SearchResults query={query} results={data} />
+    </ExplorerShell>
+  )
+}
+
+function BrowseView({ path }: { path: string }) {
+  const { data } = useSuspenseQuery(browseQueryOptions(path))
+  const file = data.kind === "file" ? data : null
+  return (
+    <ExplorerShell activePath={path} file={file}>
+      {data.stale && (
         <Alert className="mb-5 bg-card shadow-sm">
           <WifiOffIcon />
           <AlertTitle>The server is unreachable right now</AlertTitle>
@@ -124,9 +149,7 @@ export function ExplorerView({
           </AlertDescription>
         </Alert>
       )}
-      {data.kind === "search" ? (
-        <SearchResults query={data.query} results={data.results} />
-      ) : data.kind === "dir" ? (
+      {data.kind === "dir" ? (
         <DirectoryView path={data.path} entries={data.entries} />
       ) : (
         <FileView data={data} />
@@ -143,7 +166,7 @@ function ExplorerShell({
 }: {
   activePath: string
   currentQuery?: string
-  file: Extract<PageData, { kind: "file" }> | null
+  file: FileData | null
   children: React.ReactNode
 }) {
   useRemoteFileEvents()
@@ -361,7 +384,7 @@ function EntryRow({
   )
 }
 
-function FileView({ data }: { data: Extract<PageData, { kind: "file" }> }) {
+function FileView({ data }: { data: FileData }) {
   const name = nameOf(data.path)
   const kind = fileKindOf(name)
   return (
@@ -413,6 +436,7 @@ function FileView({ data }: { data: Extract<PageData, { kind: "file" }> }) {
 function MarkdownCard({ path, content }: { path: string; content: string }) {
   const [mounted, setMounted] = React.useState(false)
   const [text, setText] = React.useState(content)
+  const queryClient = useQueryClient()
 
   React.useEffect(() => {
     setMounted(true)
@@ -423,12 +447,29 @@ function MarkdownCard({ path, content }: { path: string; content: string }) {
     setText(content)
   }, [content])
 
+  const { mutateAsync: saveMutate } = useMutation({
+    mutationFn: (full: string) => saveFile({ data: { path, content: full } }),
+    onSuccess: (_result, full) => {
+      setText(full)
+      // Patch the cached file view so reopening shows the saved text without a
+      // refetch that would yank the editor out from under the user.
+      queryClient.setQueryData<BrowseResult>(
+        browseQueryOptions(path).queryKey,
+        (old) => {
+          if (!old || old.kind !== "file") return old
+          return { ...old, content: full }
+        }
+      )
+      // The file's size/mtime changed — let the tree refresh in the background.
+      void queryClient.invalidateQueries({ queryKey: ["tree"] })
+    },
+  })
+
   const handleSave = React.useCallback(
     async (full: string) => {
-      await saveFile({ data: { path, content: full } })
-      setText(full)
+      await saveMutate(full)
     },
-    [path]
+    [saveMutate]
   )
 
   return (

@@ -4,10 +4,11 @@ import * as React from "react"
 import { Dialog as DialogPrimitive } from "radix-ui"
 import { useNavigate } from "@tanstack/react-router"
 import { useHotkey } from "@tanstack/react-hotkeys"
+import { useQuery } from "@tanstack/react-query"
 import { CornerDownLeftIcon, SearchIcon } from "lucide-react"
 import { FileTypeIcon } from "@/components/file-icon"
 import { Spinner } from "@/components/ui/spinner"
-import { searchFiles } from "@/server/files"
+import { searchQueryOptions } from "@/lib/queries"
 import { nameOf, parentOf } from "@/lib/file-kinds"
 import { cn } from "@/lib/utils"
 import type { SearchResult } from "@/server/ssh"
@@ -29,8 +30,6 @@ export function FileSearchDialog() {
   const navigate = useNavigate()
   const [open, setOpen] = React.useState(false)
   const [query, setQuery] = React.useState("")
-  const [results, setResults] = React.useState<Array<SearchResult>>([])
-  const [loading, setLoading] = React.useState(false)
   const [activeIndex, setActiveIndex] = React.useState(0)
   const listRef = React.useRef<HTMLDivElement>(null)
 
@@ -40,42 +39,33 @@ export function FileSearchDialog() {
 
   const trimmed = query.trim()
 
+  // Wait for typing to settle before hitting the server — every keystroke
+  // would otherwise fire a fresh `find | grep` over SSH.
+  const [debounced, setDebounced] = React.useState("")
   React.useEffect(() => {
-    if (!open) return
-    if (trimmed.length < MIN_QUERY_LENGTH) {
-      setResults([])
-      setLoading(false)
-      return
-    }
-    setLoading(true)
-    let cancelled = false
-    const handle = setTimeout(() => {
-      searchFiles({ data: { query: trimmed } })
-        .then((found) => {
-          if (cancelled) return
-          setResults(found)
-          setActiveIndex(0)
-        })
-        .catch(() => {
-          if (!cancelled) setResults([])
-        })
-        .finally(() => {
-          if (!cancelled) setLoading(false)
-        })
-    }, DEBOUNCE_MS)
-    return () => {
-      cancelled = true
-      clearTimeout(handle)
-    }
-  }, [trimmed, open])
+    const handle = setTimeout(() => setDebounced(trimmed), DEBOUNCE_MS)
+    return () => clearTimeout(handle)
+  }, [trimmed])
+
+  const enabled = open && debounced.length >= MIN_QUERY_LENGTH
+  const search = useQuery({ ...searchQueryOptions(debounced), enabled })
+  const results: Array<SearchResult> = enabled ? (search.data ?? []) : []
+  // Spinner while waiting for the debounce to catch up or for the fetch itself.
+  const loading =
+    open &&
+    trimmed.length >= MIN_QUERY_LENGTH &&
+    (debounced !== trimmed || (enabled && search.isFetching))
+
+  // Reset the highlighted row whenever a new query runs.
+  React.useEffect(() => {
+    setActiveIndex(0)
+  }, [debounced])
 
   // Start fresh each time the palette opens.
   React.useEffect(() => {
     if (!open) {
       setQuery("")
-      setResults([])
       setActiveIndex(0)
-      setLoading(false)
     }
   }, [open])
 

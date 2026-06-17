@@ -1,5 +1,6 @@
 import * as React from "react"
 import { useNavigate, useRouter } from "@tanstack/react-router"
+import { useMutation, useQueryClient } from "@tanstack/react-query"
 import {
   CheckIcon,
   FolderTree,
@@ -17,7 +18,6 @@ import {
 } from "@/components/ui/empty"
 import { Spinner } from "@/components/ui/spinner"
 import { selectSshHost } from "@/server/files"
-import { refreshTree } from "@/lib/use-tree"
 import { cn } from "@/lib/utils"
 import type { SshConfigHost } from "@/server/ssh"
 
@@ -32,6 +32,7 @@ export function SetupScreen({
 }) {
   const router = useRouter()
   const navigate = useNavigate()
+  const queryClient = useQueryClient()
   const [selected, setSelected] = React.useState<string | null>(() => {
     if (current) return current
     if (typeof window !== "undefined") {
@@ -40,24 +41,29 @@ export function SetupScreen({
     }
     return hosts.length === 1 ? hosts[0].alias : null
   })
-  const [connecting, setConnecting] = React.useState(false)
-  const [error, setError] = React.useState<string | null>(null)
 
-  async function connect() {
-    if (!selected || connecting) return
-    setConnecting(true)
-    setError(null)
-    try {
-      await selectSshHost({ data: { host: selected } })
-      window.localStorage.setItem(HOST_STORAGE_KEY, selected)
-      refreshTree()
+  const connectMutation = useMutation({
+    mutationFn: (host: string) => selectSshHost({ data: { host } }),
+    onSuccess: async (_result, host) => {
+      window.localStorage.setItem(HOST_STORAGE_KEY, host)
+      // The host changed, so every cached read is now for the wrong server.
+      await queryClient.invalidateQueries()
       await router.invalidate()
       await navigate({ to: "/", search: {} })
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Connection failed")
-    } finally {
-      setConnecting(false)
-    }
+    },
+  })
+
+  const connecting = connectMutation.isPending
+  const error =
+    connectMutation.error instanceof Error
+      ? connectMutation.error.message
+      : connectMutation.isError
+        ? "Connection failed"
+        : null
+
+  function connect() {
+    if (!selected || connecting) return
+    connectMutation.mutate(selected)
   }
 
   return (

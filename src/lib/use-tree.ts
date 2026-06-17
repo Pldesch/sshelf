@@ -1,80 +1,57 @@
 import * as React from "react"
-import { getTree } from "@/server/files"
-import type { TreeResult } from "@/server/files"
+import { useQuery, useQueryClient } from "@tanstack/react-query"
+import { treeQueryOptions } from "@/lib/queries"
+import type { QueryClient } from "@tanstack/react-query"
 
 export type ConnectionState = "connecting" | "connected" | "offline"
 
-interface TreeStore {
-  tree: TreeResult | null
-  state: ConnectionState
-  error: string | null
-}
+// The browser's single QueryClient, captured so the module-level refreshTree()
+// helper can invalidate caches from plain event handlers. Only ever read on the
+// client (refreshTree is never called during SSR), so cross-request sharing on
+// the server is harmless.
+let liveQueryClient: QueryClient | undefined
 
-// One shared snapshot for the whole app — fetched once, refreshed on
-// focus or manual retry, never per-folder.
-let store: TreeStore = { tree: null, state: "connecting", error: null }
-const listeners = new Set<() => void>()
-let fetching = false
-
-function notify() {
-  for (const listener of listeners) listener()
-}
-
-async function refresh() {
-  if (fetching) return
-  fetching = true
-  if (store.state === "offline") {
-    store = { ...store, state: "connecting" }
-    notify()
-  }
-  try {
-    const tree = await getTree()
-    store = {
-      tree,
-      state: tree.stale ? "offline" : "connected",
-      error: null,
-    }
-  } catch (error) {
-    store = {
-      ...store,
-      state: "offline",
-      error: error instanceof Error ? error.message : "Connection failed",
-    }
-  } finally {
-    fetching = false
-    notify()
-  }
-}
-
-/** Force a refetch — used after switching SSH servers. */
+/**
+ * Invalidate everything derived from the remote filesystem (tree, folder
+ * listings, file contents, database pages) so the next read refetches. Called
+ * after a local mutation or a server-sent "files changed" event; pair it with
+ * `router.invalidate()` to re-run the active route's loader.
+ */
 export function refreshTree() {
-  store = { tree: null, state: "connecting", error: null }
-  notify()
-  void refresh()
+  void liveQueryClient?.invalidateQueries()
 }
 
-function subscribe(listener: () => void) {
-  listeners.add(listener)
-  return () => listeners.delete(listener)
-}
-
+/**
+ * One shared view of the remote file tree, backed by a single React Query
+ * cache entry: every caller subscribes to the same fetch, it refreshes on
+ * window focus and on a slow interval, and stale data (kept by the SSH layer
+ * when the connection drops) surfaces as the "offline" state.
+ */
 export function useTree() {
-  const snapshot = React.useSyncExternalStore(
-    subscribe,
-    () => store,
-    () => store
-  )
-
+  const queryClient = useQueryClient()
   React.useEffect(() => {
-    if (!store.tree) void refresh()
-    const onFocus = () => void refresh()
-    window.addEventListener("focus", onFocus)
-    const interval = window.setInterval(onFocus, 60_000)
-    return () => {
-      window.removeEventListener("focus", onFocus)
-      window.clearInterval(interval)
-    }
-  }, [])
+    liveQueryClient = queryClient
+  }, [queryClient])
 
-  return { ...snapshot, refresh }
+  const query = useQuery(treeQueryOptions())
+  const tree = query.data ?? null
+
+  const state: ConnectionState =
+    query.isError || tree?.stale ? "offline" : tree ? "connected" : "connecting"
+
+  const error =
+    query.error instanceof Error
+      ? query.error.message
+      : query.isError
+        ? "Connection failed"
+        : null
+
+  return {
+    tree,
+    state,
+    error,
+    refresh: () => {
+      void query.refetch()
+    },
+  }
 }

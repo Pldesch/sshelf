@@ -5,7 +5,7 @@ import {
   PendingView,
   explorerLoader,
 } from "@/components/explorer"
-import type { PageData } from "@/components/explorer"
+import type { PageDescriptor } from "@/components/explorer"
 
 interface RootSearch {
   /** Legacy links used `?path=…` — redirect them to the real path. */
@@ -26,11 +26,15 @@ export const Route = createFileRoute("/")({
     q: search.q,
     setup: search.setup,
   }),
-  loader: async ({ deps }): Promise<PageData> => {
+  loader: async ({ context, deps }): Promise<PageDescriptor> => {
     if (deps.path) {
       throw redirect({ to: "/$", params: { _splat: deps.path } })
     }
-    return explorerLoader({ path: "", q: deps.q, setup: deps.setup })
+    return explorerLoader(context.queryClient, {
+      path: "",
+      q: deps.q,
+      setup: deps.setup,
+    })
   },
   pendingComponent: PendingView,
   errorComponent: ErrorView,
@@ -38,7 +42,6 @@ export const Route = createFileRoute("/")({
 })
 
 function RootPage() {
-  const data = Route.useLoaderData()
-  const { q } = Route.useSearch()
-  return <ExplorerView data={data} path="" q={q} />
+  const descriptor = Route.useLoaderData()
+  return <ExplorerView descriptor={descriptor} />
 }
