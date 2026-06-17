@@ -368,7 +368,10 @@ export default function DatabaseView({ path }: { path: string }) {
   async function saveCell(rowid: number, column: string, raw: string) {
     if (!active) return
     const value = raw === "" ? null : raw
-    const previous = page
+    // Snapshot only THIS cell's prior value, so a failed save reverts just this
+    // cell — never a whole-page snapshot that would clobber concurrent edits.
+    const prevCellValue: DbValue =
+      page?.rows.find((r) => r.rowid === rowid)?.cells[column] ?? null
     setPage((p) =>
       p
         ? {
@@ -388,7 +391,18 @@ export default function DatabaseView({ path }: { path: string }) {
       })
     } catch (err) {
       setMutationError(errorMessage(err))
-      setPage(previous)
+      setPage((p) =>
+        p
+          ? {
+              ...p,
+              rows: p.rows.map((r) =>
+                r.rowid === rowid
+                  ? { ...r, cells: { ...r.cells, [column]: prevCellValue } }
+                  : r
+              ),
+            }
+          : p
+      )
     }
   }
 
