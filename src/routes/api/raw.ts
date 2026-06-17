@@ -21,6 +21,9 @@ export const Route = createFileRoute("/api/raw")({
           const headers: Record<string, string> = {
             ETag: etag,
             "Cache-Control": "private, max-age=60",
+            // Prevent the browser from MIME-sniffing the response into a
+            // different (potentially executable) type than we declare.
+            "X-Content-Type-Options": "nosniff",
           }
           if (request.headers.get("if-none-match") === etag) {
             return new Response(null, { status: 304, headers })
@@ -29,13 +32,25 @@ export const Route = createFileRoute("/api/raw")({
           const fileName = nameOf(path)
           const disposition =
             url.searchParams.get("download") === "1" ? "attachment" : "inline"
+          const contentType = mimeTypeOf(fileName)
+          const responseHeaders: Record<string, string> = {
+            ...headers,
+            "Content-Type": contentType,
+            "Content-Length": String(file.value.byteLength),
+            "Content-Disposition": `${disposition}; filename="${encodeURIComponent(fileName)}"`,
+          }
+          // For HTML we keep serving it inline (the html-viewer preview embeds
+          // it in a sandboxed iframe that still needs scripts). The CSP sandbox
+          // directive forces the document into an opaque origin even on a
+          // top-level navigation, so a crafted .html can no longer reach the
+          // app's real origin, cookies, or storage — while its own scripts
+          // still run inside the isolated context.
+          if (contentType.startsWith("text/html")) {
+            responseHeaders["Content-Security-Policy"] =
+              "sandbox allow-scripts allow-popups allow-forms"
+          }
           return new Response(new Uint8Array(file.value), {
-            headers: {
-              ...headers,
-              "Content-Type": mimeTypeOf(fileName),
-              "Content-Length": String(file.value.byteLength),
-              "Content-Disposition": `${disposition}; filename="${encodeURIComponent(fileName)}"`,
-            },
+            headers: responseHeaders,
           })
         } catch (error) {
           const message =

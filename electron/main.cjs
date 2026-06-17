@@ -191,13 +191,44 @@ async function createWindow() {
     },
   })
 
-  mainWindow.webContents.setWindowOpenHandler(({ url }) => {
-    shell.openExternal(url)
+  // Popups never open in-app. Only hand off real web URLs to the OS browser;
+  // file:, javascript:, and custom-protocol URLs are denied without opening.
+  mainWindow.webContents.setWindowOpenHandler(({ url: popupUrl }) => {
+    try {
+      const { protocol } = new URL(popupUrl)
+      if (protocol === "http:" || protocol === "https:") {
+        shell.openExternal(popupUrl)
+      }
+    } catch {
+      // Unparseable URL — deny silently.
+    }
     return { action: "deny" }
   })
 
   const url = app.isPackaged ? await startEmbeddedServer() : DEV_SERVER_URL
   await mainWindow.loadURL(url)
+
+  // Keep the renderer pinned to the app's own origin. In-app SPA navigation
+  // uses the history/hash API (no full load, so this won't fire), but a
+  // crafted top-level navigation to another origin would. Allow same-origin
+  // full loads; for anything else prevent it and, if it's a web URL, hand it
+  // off to the external browser instead.
+  const appOrigin = new URL(url).origin
+  mainWindow.webContents.on("will-navigate", (event, navigationUrl) => {
+    let targetOrigin
+    try {
+      targetOrigin = new URL(navigationUrl).origin
+    } catch {
+      event.preventDefault()
+      return
+    }
+    if (targetOrigin === appOrigin) return
+    event.preventDefault()
+    const { protocol } = new URL(navigationUrl)
+    if (protocol === "http:" || protocol === "https:") {
+      shell.openExternal(navigationUrl)
+    }
+  })
 
   if (!app.isPackaged) {
     mainWindow.webContents.openDevTools({ mode: "detach" })
