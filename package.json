@@ -1,6 +1,6 @@
 {
   "name": "sshelf",
-  "version": "0.5.5",
+  "version": "0.5.6",
   "description": "A local-first, Notion-style desktop workspace for the files on a remote SSH machine",
   "author": "Pierre-Loic Deschaetzen",
   "repository": {

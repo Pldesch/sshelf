@@ -32,6 +32,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `SSHELF_SSH_HOST`).
 - Security hardening across the SSH transport and file handling.
 
+## [0.5.6] - 2026-06-23
+
+### Changed
+
+- HTML previews and database tables now fill the visible pane without outer
+  margins.
+- HTML files now render directly without the preview/source switcher.
+
 ## [0.5.5] - 2026
 
 ### Added

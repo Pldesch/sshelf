@@ -172,15 +172,19 @@ function ExplorerShell({
   useRemoteFileEvents()
   const { tree } = useTree()
   const root = tree?.root ?? ""
-  // Databases use the full width; prose (markdown/text) keeps a readable column.
-  const fullWidth = file ? fileKindOf(nameOf(file.path)) === "database" : false
+  // Data-heavy previews use the full available pane; prose keeps a readable column.
+  const fullPane = file
+    ? ["database", "html"].includes(fileKindOf(nameOf(file.path)))
+    : false
   return (
     <SidebarProvider>
       <AppSidebar activePath={activePath} />
-      <SidebarInset className="min-w-0">
+      <SidebarInset
+        className={fullPane ? "h-svh min-w-0 overflow-hidden" : "min-w-0"}
+      >
         {/* min-w-0 lets the inset stay at viewport width so wide tables
             scroll inside their own container instead of stretching the page. */}
-        <header className="sticky top-0 z-10 flex items-center gap-3 bg-background/85 px-5 py-3 backdrop-blur-md">
+        <header className="sticky top-0 z-10 flex shrink-0 items-center gap-3 bg-background/85 px-5 py-3 backdrop-blur-md">
           <SidebarTrigger />
           <PathBreadcrumb path={activePath} isSearch={Boolean(currentQuery)} />
           <div className="flex-1" />
@@ -203,7 +207,11 @@ function ExplorerShell({
           )}
         </header>
         <div
-          className={`mx-auto w-full min-w-0 px-8 pt-3 pb-12 ${fullWidth ? "" : "max-w-[960px]"}`}
+          className={
+            fullPane
+              ? "flex min-h-0 w-full min-w-0 flex-1 flex-col overflow-hidden"
+              : "mx-auto w-full max-w-[960px] min-w-0 px-8 pt-3 pb-12"
+          }
         >
           {children}
         </div>

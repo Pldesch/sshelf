@@ -506,8 +506,8 @@ export default function DatabaseView({ path }: { path: string }) {
   }
 
   return (
-    <div className="flex flex-col gap-4">
-      <div className="flex items-center gap-2.5">
+    <div className="flex h-full min-h-0 flex-col">
+      <div className="flex items-center gap-2.5 border-b border-[var(--stone-100)] px-4 py-3">
         <span className="flex size-9 items-center justify-center rounded-lg bg-muted text-[var(--navy-500)]">
           <DatabaseIcon className="size-4" />
         </span>
@@ -546,7 +546,7 @@ export default function DatabaseView({ path }: { path: string }) {
       </div>
 
       {tables && tables.length > 1 && (
-        <div className="flex flex-wrap gap-1.5">
+        <div className="flex flex-wrap gap-1.5 border-b border-[var(--stone-100)] px-4 py-2">
           {tables.map((name) => (
             <button
               key={name}
@@ -565,7 +565,7 @@ export default function DatabaseView({ path }: { path: string }) {
       )}
 
       {mutationError && (
-        <Alert variant="destructive">
+        <Alert variant="destructive" className="m-4">
           <TriangleAlertIcon />
           <AlertTitle>That change didn’t save</AlertTitle>
           <AlertDescription>
@@ -575,14 +575,14 @@ export default function DatabaseView({ path }: { path: string }) {
       )}
 
       {loading ? (
-        <div className="flex flex-col gap-3 rounded-xl bg-card p-5 shadow-sm">
+        <div className="m-4 flex flex-col gap-3 rounded-xl bg-card p-5 shadow-sm">
           <Skeleton className="h-4 w-1/3" />
           <Skeleton className="h-4 w-full" />
           <Skeleton className="h-4 w-5/6" />
           <Skeleton className="h-4 w-4/6" />
         </div>
       ) : tables && tables.length === 0 ? (
-        <Alert className="bg-card shadow-sm">
+        <Alert className="m-4 bg-card shadow-sm">
           <DatabaseIcon />
           <AlertTitle>No tables</AlertTitle>
           <AlertDescription>
@@ -611,7 +611,7 @@ export default function DatabaseView({ path }: { path: string }) {
             }
           />
         ) : (
-          <Alert className="bg-card shadow-sm">
+          <Alert className="m-4 bg-card shadow-sm">
             <KanbanIcon />
             <AlertTitle>No board grouping available</AlertTitle>
             <AlertDescription>
@@ -718,8 +718,8 @@ function TableGrid({
   const colSpan = page.columns.length + (page.editable ? 2 : 0)
 
   return (
-    <div className="overflow-hidden rounded-xl bg-card shadow-sm">
-      <div className="overflow-x-auto">
+    <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-card">
+      <div className="min-h-0 flex-1 overflow-auto">
         <table className="w-full border-collapse text-sm">
           <thead>
             <tr className="border-b border-[var(--stone-200)]">
@@ -801,7 +801,7 @@ function TableGrid({
           </tbody>
         </table>
       </div>
-      <div className="flex items-center justify-between gap-3 border-t border-[var(--stone-100)] px-4 py-2.5">
+      <div className="flex shrink-0 items-center justify-between gap-3 border-t border-[var(--stone-100)] px-4 py-2.5">
         {page.editable ? (
           <button
             type="button"
