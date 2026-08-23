@@ -6,6 +6,7 @@ import {
   readDatabaseView,
   readRowBody,
 } from "@/server/database"
+import { getCyrusOverview } from "@/server/cyrus"
 
 /**
  * Central definition of every server read as a React Query option object.
@@ -19,6 +20,7 @@ import {
  *   ["db", "table", path, table, offset]      – one page of rows
  *   ["db", "rowBody", path, table, rowid]     – a row's markdown page body
  *   ["db", "view", path, table]               – a table's saved view config
+ *   ["cyrus", "overview"]                     – Cyrus service/session/worktree status
  *
  * A broad `["browse"]` or `["db", "table", path]` invalidation matches every
  * more-specific key beneath it, which is how file/row mutations refresh.
@@ -86,5 +88,19 @@ export function dbViewQueryOptions(path: string, table: string) {
   return queryOptions({
     queryKey: ["db", "view", path, table] as const,
     queryFn: () => readDatabaseView({ data: { path, table } }),
+  })
+}
+
+export function cyrusOverviewQueryOptions() {
+  return queryOptions({
+    queryKey: ["cyrus", "overview"] as const,
+    queryFn: () => getCyrusOverview(),
+    // Always stale: the app-wide default (refetchOnWindowFocus: true) then
+    // means switching back to this tab always re-checks status, not just
+    // when the last fetch happens to be older than some threshold. The
+    // 15s poll covers staying on the tab; the server still holds its own
+    // result for 10s, so neither this nor a focus flick floods SSH.
+    staleTime: 0,
+    refetchInterval: 15_000,
   })
 }

@@ -294,7 +294,7 @@ export interface CachedResult<T> {
   stale: boolean
 }
 
-async function withCache<T>(
+export async function withCache<T>(
   key: string,
   ttlMs: number,
   fetcher: () => Promise<T>

@@ -1,5 +1,10 @@
-import { Link } from "@tanstack/react-router"
-import { ArrowLeftRightIcon, FolderTree, RefreshCwIcon } from "lucide-react"
+import { Link, useLocation } from "@tanstack/react-router"
+import {
+  ArrowLeftRightIcon,
+  BotIcon,
+  FolderTree,
+  RefreshCwIcon,
+} from "lucide-react"
 import {
   Tooltip,
   TooltipContent,
@@ -13,12 +18,17 @@ import {
   SidebarGroupContent,
   SidebarGroupLabel,
   SidebarHeader,
+  SidebarMenu,
+  SidebarMenuButton,
+  SidebarMenuItem,
 } from "@/components/ui/sidebar"
 import { FileTree } from "@/components/file-tree"
 import { useTree } from "@/lib/use-tree"
 
 export function AppSidebar({ activePath }: { activePath: string }) {
   const { tree, state, refresh } = useTree()
+  const location = useLocation()
+  const onCyrus = location.pathname.startsWith("/cyrus")
 
   return (
     <Sidebar>
@@ -31,6 +41,20 @@ export function AppSidebar({ activePath }: { activePath: string }) {
         </Link>
       </SidebarHeader>
       <SidebarContent>
+        <SidebarGroup>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              <SidebarMenuItem>
+                <SidebarMenuButton asChild isActive={onCyrus}>
+                  <Link to="/cyrus">
+                    <BotIcon />
+                    <span>Cyrus</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
         <SidebarGroup>
           <SidebarGroupLabel className="font-mono text-[10px] tracking-[0.08em] uppercase">
             Files

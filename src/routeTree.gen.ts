@@ -9,12 +9,18 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as CyrusRouteImport } from './routes/cyrus'
 import { Route as SplatRouteImport } from './routes/$'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ApiUploadRouteImport } from './routes/api/upload'
 import { Route as ApiRawRouteImport } from './routes/api/raw'
 import { Route as ApiEventsRouteImport } from './routes/api/events'
 
+const CyrusRoute = CyrusRouteImport.update({
+  id: '/cyrus',
+  path: '/cyrus',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const SplatRoute = SplatRouteImport.update({
   id: '/$',
   path: '/$',
@@ -44,6 +50,7 @@ const ApiEventsRoute = ApiEventsRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/$': typeof SplatRoute
+  '/cyrus': typeof CyrusRoute
   '/api/events': typeof ApiEventsRoute
   '/api/raw': typeof ApiRawRoute
   '/api/upload': typeof ApiUploadRoute
@@ -51,6 +58,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/$': typeof SplatRoute
+  '/cyrus': typeof CyrusRoute
   '/api/events': typeof ApiEventsRoute
   '/api/raw': typeof ApiRawRoute
   '/api/upload': typeof ApiUploadRoute
@@ -59,21 +67,30 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/$': typeof SplatRoute
+  '/cyrus': typeof CyrusRoute
   '/api/events': typeof ApiEventsRoute
   '/api/raw': typeof ApiRawRoute
   '/api/upload': typeof ApiUploadRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/$' | '/api/events' | '/api/raw' | '/api/upload'
+  fullPaths: '/' | '/$' | '/cyrus' | '/api/events' | '/api/raw' | '/api/upload'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/$' | '/api/events' | '/api/raw' | '/api/upload'
-  id: '__root__' | '/' | '/$' | '/api/events' | '/api/raw' | '/api/upload'
+  to: '/' | '/$' | '/cyrus' | '/api/events' | '/api/raw' | '/api/upload'
+  id:
+    | '__root__'
+    | '/'
+    | '/$'
+    | '/cyrus'
+    | '/api/events'
+    | '/api/raw'
+    | '/api/upload'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   SplatRoute: typeof SplatRoute
+  CyrusRoute: typeof CyrusRoute
   ApiEventsRoute: typeof ApiEventsRoute
   ApiRawRoute: typeof ApiRawRoute
   ApiUploadRoute: typeof ApiUploadRoute
@@ -81,6 +98,13 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/cyrus': {
+      id: '/cyrus'
+      path: '/cyrus'
+      fullPath: '/cyrus'
+      preLoaderRoute: typeof CyrusRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/$': {
       id: '/$'
       path: '/$'
@@ -122,6 +146,7 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   SplatRoute: SplatRoute,
+  CyrusRoute: CyrusRoute,
   ApiEventsRoute: ApiEventsRoute,
   ApiRawRoute: ApiRawRoute,
   ApiUploadRoute: ApiUploadRoute,
