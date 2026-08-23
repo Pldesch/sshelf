@@ -7,8 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-08-23
+
 ### Added
 
+- A **Cyrus page** for hosts running the [Cyrus](https://github.com/cyrusagents/cyrus)
+  AI agent: service status (`cyrus` + `ngrok` systemd units, edge worker
+  health), active sessions, and every git worktree with its GitHub PR and
+  Linear issue status. A worktree can be archived (removed locally) once its
+  work has landed, with safety checks against active sessions and uncommitted
+  changes.
 - Open-source MIT license and contributor documentation (`README`,
   `CONTRIBUTING`, this changelog).
 - Continuous integration workflow running typecheck, lint, prettier, tests, and
