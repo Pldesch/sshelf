@@ -19,6 +19,11 @@ import {
   writeRemoteFile,
 } from "@/server/ssh"
 import { fileKindOf, nameOf, parentOf } from "@/lib/file-kinds"
+import {
+  MAX_HTML_COMPANION_BYTES,
+  assertEditableHtmlCompanion,
+  resolveHtmlCompanionPath,
+} from "@/lib/html-file-bridge"
 import type { RemoteEntry, SearchResult, SshConfigHost } from "@/server/ssh"
 
 const MAX_TEXT_BYTES = 4 * 1024 * 1024
@@ -165,6 +170,55 @@ export const saveFile = createServerFn({ method: "POST" })
     }
     await writeRemoteFile(data.path, Buffer.from(data.content, "utf-8"))
     return { ok: true }
+  })
+
+function validateHtmlCompanionContent(content: string): void {
+  if (Buffer.byteLength(content, "utf-8") > MAX_HTML_COMPANION_BYTES) {
+    throw new Error("The companion file is too large")
+  }
+}
+
+async function findHtmlCompanion(htmlPath: string, requestedPath: string) {
+  const html = await findEntry(htmlPath)
+  if (
+    !html.value ||
+    html.value.type !== "file" ||
+    fileKindOf(htmlPath) !== "html"
+  ) {
+    throw new Error("The requesting HTML file was not found")
+  }
+
+  const path = resolveHtmlCompanionPath(htmlPath, requestedPath)
+  assertEditableHtmlCompanion(path)
+  const companion = await findEntry(path)
+  if (!companion.value || companion.value.type !== "file") {
+    throw new Error("The companion file was not found")
+  }
+  if (companion.value.size > MAX_HTML_COMPANION_BYTES) {
+    throw new Error("The companion file is too large")
+  }
+  return path
+}
+
+/** Read an existing text file scoped to a sandboxed HTML preview's folder. */
+export const readHtmlCompanionFile = createServerFn()
+  .validator((data: { htmlPath: string; path: string }) => data)
+  .handler(async ({ data }) => {
+    const path = await findHtmlCompanion(data.htmlPath, data.path)
+    const file = await readRemoteFile(path)
+    return { path, content: file.value.toString("utf-8") }
+  })
+
+/** Write an existing text file scoped to a sandboxed HTML preview's folder. */
+export const writeHtmlCompanionFile = createServerFn({ method: "POST" })
+  .validator(
+    (data: { htmlPath: string; path: string; content: string }) => data
+  )
+  .handler(async ({ data }) => {
+    validateHtmlCompanionContent(data.content)
+    const path = await findHtmlCompanion(data.htmlPath, data.path)
+    await writeRemoteFile(path, Buffer.from(data.content, "utf-8"))
+    return { ok: true, path }
   })
 
 export const deletePath = createServerFn({ method: "POST" })

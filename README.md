@@ -60,8 +60,9 @@ reach over SSH, Sshelf is meant to be the front door to it.
   typed columns (text, number, select, status, checkbox, date, URL…), a Kanban
   **board view**, per-row Markdown pages, filtering/sorting/search, and saved
   per-table views (stored in the file itself, in a hidden sidecar table).
-- **Viewers** — PDFs, images, HTML (sandboxed preview + source), and text/code
-  with syntax highlighting.
+- **Viewers** — PDFs, images, sandboxed HTML, and text/code with syntax
+  highlighting. HTML tools can persist state in a text companion file through
+  a restricted `postMessage` bridge.
 - **Quick open** — ⌘P / Ctrl+P opens a command palette that searches file names
   and contents across the server.
 
@@ -135,6 +136,46 @@ the desktop shell embeds.
 
 Measured on one setup (production build): folder navigation ~1 ms, cached file
 reopen ~4 ms, 304 revalidation ~11 ms, warm PDF ~11 ms, cold PDF ~260 ms.
+
+## Persistent state for HTML tools
+
+Sandboxed HTML previews can read or write an existing text file beside the HTML
+file (or in one of its subdirectories). This lets a static dashboard, form or
+other local tool keep shared state in the remote workspace instead of browser
+storage. Requests use `window.parent.postMessage`:
+
+```js
+const channel = "sshelf:file-bridge:v1"
+
+function sshelfFile(type, path, content) {
+  return new Promise((resolve, reject) => {
+    const requestId = crypto.randomUUID()
+    const onMessage = ({ data }) => {
+      if (
+        data?.channel !== channel ||
+        data?.type !== "file-result" ||
+        data?.requestId !== requestId
+      )
+        return
+      window.removeEventListener("message", onMessage)
+      data.ok ? resolve(data) : reject(new Error(data.error))
+    }
+    window.addEventListener("message", onMessage)
+    window.parent.postMessage(
+      { channel, type, requestId, path, ...(content == null ? {} : { content }) },
+      "*"
+    )
+  })
+}
+
+const saved = await sshelfFile("read-file", "answers.json")
+await sshelfFile("write-file", "answers.json", saved.content)
+```
+
+The capability is intentionally narrow: paths must be relative to the HTML
+file's directory, parent traversal and self-overwrites are rejected, only
+existing text/Markdown files are accessible, and content is limited to 4 MiB.
+The iframe remains sandboxed with an opaque origin.
 
 ## Project layout
 

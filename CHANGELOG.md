@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.1] - 2026-08-24
+
+### Added
+
+- A restricted `postMessage` file bridge for sandboxed HTML previews. Static
+  HTML tools can now read and write existing text companion files in their own
+  directory tree, enabling shared persistent state without browser storage.
+
 ## [0.6.0] - 2026-08-23
 
 ### Added
