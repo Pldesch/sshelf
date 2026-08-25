@@ -129,14 +129,10 @@ function DirectoryLevel({
   activePath: string
 }) {
   const query = useQuery(browseQueryOptions(parentPath))
-  if (!query.data) {
-    return (
-      <div className="flex flex-col gap-2 px-3 py-2">
-        <Skeleton className="h-4 w-4/5 bg-sidebar-accent" />
-        <Skeleton className="h-4 w-3/5 bg-sidebar-accent" />
-      </div>
-    )
-  }
+  // Keep expansion visually quiet while the direct children arrive. Skeleton
+  // rows looked like temporary files and caused an especially odd flash for
+  // empty folders, which legitimately resolve to no child rows at all.
+  if (!query.data) return null
   if (query.data.kind !== "dir") return null
   return <TreeLevel entries={query.data.entries} activePath={activePath} />
 }
