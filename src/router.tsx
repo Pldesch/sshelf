@@ -15,7 +15,10 @@ export function getRouter() {
         staleTime: 30_000,
         gcTime: 5 * 60_000,
         retry: false,
-        refetchOnWindowFocus: true,
+        // Filesystem events and mutation cache patches keep workspace data
+        // current. Refetching every stale query whenever Electron regains focus
+        // made ordinary app switching feel like a full refresh.
+        refetchOnWindowFocus: false,
       },
     },
   })

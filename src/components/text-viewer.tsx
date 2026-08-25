@@ -10,6 +10,7 @@ import sql from "highlight.js/lib/languages/sql"
 import typescript from "highlight.js/lib/languages/typescript"
 import xml from "highlight.js/lib/languages/xml"
 import yaml from "highlight.js/lib/languages/yaml"
+import { memo, useMemo } from "react"
 import { extensionOf } from "@/lib/file-kinds"
 
 hljs.registerLanguage("bash", bash)
@@ -54,21 +55,20 @@ function escapeHtml(value: string): string {
     .replaceAll(">", "&gt;")
 }
 
-export default function TextViewer({
-  path,
-  content,
-}: {
-  path: string
-  content: string
-}) {
+function TextViewer({ path, content }: { path: string; content: string }) {
   const language = EXT_LANGUAGE[extensionOf(path)]
-  const html =
-    language && hljs.getLanguage(language)
-      ? hljs.highlight(content, { language, ignoreIllegals: true }).value
-      : escapeHtml(content)
+  const html = useMemo(
+    () =>
+      language && hljs.getLanguage(language)
+        ? hljs.highlight(content, { language, ignoreIllegals: true }).value
+        : escapeHtml(content),
+    [content, language]
+  )
   return (
     <pre className="overflow-x-auto rounded-lg bg-[var(--navy-800)] p-5 font-mono text-[13px] leading-relaxed whitespace-pre-wrap text-[var(--navy-100)]">
       <code className="hljs" dangerouslySetInnerHTML={{ __html: html }} />
     </pre>
   )
 }
+
+export default memo(TextViewer)

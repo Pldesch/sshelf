@@ -128,6 +128,8 @@ export default function MarkdownEditor({
   const frontmatter = React.useRef("")
   const lastSavedFull = React.useRef(content)
   const timer = React.useRef<ReturnType<typeof setTimeout> | null>(null)
+  const pendingFull = React.useRef<string | null>(null)
+  const activeSave = React.useRef<Promise<void> | null>(null)
 
   // Load the initial markdown into the editor once it exists.
   React.useEffect(() => {
@@ -147,24 +149,49 @@ export default function MarkdownEditor({
     // when the path changes, so we intentionally don't depend on `content`.
   }, [editor])
 
+  const drainSaveQueue = React.useCallback(async () => {
+    if (activeSave.current) return activeSave.current
+
+    const operation = (async () => {
+      while (pendingFull.current !== null) {
+        const full = pendingFull.current
+        pendingFull.current = null
+        if (full === lastSavedFull.current) continue
+
+        setStatus("saving")
+        setErrorMessage(null)
+        try {
+          await onSave(full)
+          lastSavedFull.current = full
+        } catch (error) {
+          setStatus("error")
+          setErrorMessage(
+            error instanceof Error ? error.message : "Save failed"
+          )
+          return
+        }
+      }
+      setStatus("saved")
+    })().finally(() => {
+      activeSave.current = null
+    })
+    activeSave.current = operation
+    return operation
+  }, [onSave])
+
   const save = React.useCallback(async () => {
     const body = await Promise.resolve(editor.blocksToMarkdownLossy())
     const full = frontmatter.current + body
-    if (full === lastSavedFull.current) {
+    if (full === lastSavedFull.current && !activeSave.current) {
       setStatus("saved")
       return
     }
-    setStatus("saving")
-    setErrorMessage(null)
-    try {
-      await onSave(full)
-      lastSavedFull.current = full
-      setStatus("saved")
-    } catch (error) {
-      setStatus("error")
-      setErrorMessage(error instanceof Error ? error.message : "Save failed")
-    }
-  }, [editor, onSave])
+    // A later edit replaces any queued-but-not-started content. The active
+    // write completes first, then the queue writes only the newest document,
+    // so slow SSH responses can never restore an older version.
+    pendingFull.current = full
+    await drainSaveQueue()
+  }, [drainSaveQueue, editor])
 
   // Flush a pending save when the editor unmounts (e.g. the user clicks
   // Done or navigates away) so the last keystroke is never lost.

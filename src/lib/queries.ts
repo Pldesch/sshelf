@@ -1,5 +1,11 @@
 import { queryOptions } from "@tanstack/react-query"
-import { browsePath, getSshHosts, getTree, searchFiles } from "@/server/files"
+import {
+  browsePath,
+  getSshHosts,
+  getTree,
+  listDirectories,
+  searchFiles,
+} from "@/server/files"
 import {
   listDatabaseTables,
   readDatabaseTable,
@@ -30,10 +36,10 @@ export function treeQueryOptions() {
   return queryOptions({
     queryKey: ["tree"] as const,
     queryFn: () => getTree(),
-    // The remote tree is cached server-side for 30s; poll a bit slower than
-    // that so an out-of-band change still surfaces without us hammering SSH.
+    // EventSource handles normal changes. This slow poll is only a consistency
+    // fallback after a dropped event/reconnect.
     staleTime: 30_000,
-    refetchInterval: 60_000,
+    refetchInterval: 5 * 60_000,
   })
 }
 
@@ -56,6 +62,15 @@ export function searchQueryOptions(query: string) {
   return queryOptions({
     queryKey: ["search", query] as const,
     queryFn: () => searchFiles({ data: { query } }),
+    gcTime: 60_000,
+  })
+}
+
+export function directoriesQueryOptions() {
+  return queryOptions({
+    queryKey: ["directories"] as const,
+    queryFn: () => listDirectories(),
+    staleTime: 30_000,
   })
 }
 
@@ -102,5 +117,6 @@ export function cyrusOverviewQueryOptions() {
     // result for 10s, so neither this nor a focus flick floods SSH.
     staleTime: 0,
     refetchInterval: 15_000,
+    refetchOnWindowFocus: true,
   })
 }

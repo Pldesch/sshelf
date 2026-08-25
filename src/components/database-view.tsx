@@ -8,6 +8,8 @@ import {
   ArrowUpIcon,
   CheckIcon,
   ChevronDownIcon,
+  ChevronLeftIcon,
+  ChevronRightIcon,
   DatabaseIcon,
   KanbanIcon,
   ListFilterIcon,
@@ -215,6 +217,7 @@ function Chip({ name, color }: { name: string; color: string }) {
 export default function DatabaseView({ path }: { path: string }) {
   const queryClient = useQueryClient()
   const [active, setActive] = React.useState<string | null>(null)
+  const [offset, setOffset] = React.useState(0)
   const [mutationError, setMutationError] = React.useState<string | null>(null)
   const [busy, setBusy] = React.useState(false)
   const [openRowId, setOpenRowId] = React.useState<number | null>(null)
@@ -232,7 +235,7 @@ export default function DatabaseView({ path }: { path: string }) {
   const tablesQuery = useQuery(dbTablesQueryOptions(path))
   const tables = tablesQuery.data ?? null
   const tableQuery = useQuery({
-    ...dbTableQueryOptions(path, active ?? ""),
+    ...dbTableQueryOptions(path, active ?? "", offset),
     enabled: !!active,
   })
   const page = tableQuery.data ?? null
@@ -260,11 +263,11 @@ export default function DatabaseView({ path }: { path: string }) {
     (fn: (p: DbTablePage) => DbTablePage) => {
       if (!active) return
       queryClient.setQueryData<DbTablePage>(
-        dbTableQueryOptions(path, active).queryKey,
+        dbTableQueryOptions(path, active, offset).queryKey,
         (p) => (p ? fn(p) : p)
       )
     },
-    [queryClient, path, active]
+    [queryClient, path, active, offset]
   )
 
   // Keep `active` in sync with the loaded table list: pick the first table when
@@ -279,6 +282,20 @@ export default function DatabaseView({ path }: { path: string }) {
       setActive(tables[0])
     }
   }, [tables, active])
+
+  React.useEffect(() => {
+    setOffset(0)
+  }, [path, active])
+
+  React.useEffect(() => {
+    if (!page || page.totalRows === 0 || offset < page.totalRows) return
+    setOffset(
+      Math.max(
+        0,
+        Math.floor((page.totalRows - 1) / page.pageSize) * page.pageSize
+      )
+    )
+  }, [page, offset])
 
   // ⌘F / Ctrl+F expands the (collapsed) table search and focuses it, instead
   // of the browser's find bar. Registered only while a database is open.
@@ -338,9 +355,9 @@ export default function DatabaseView({ path }: { path: string }) {
       saveDatabaseView({
         data: { path, table: vars.table, config: vars.config },
       }),
-    onSettled: (_data, _err, vars) => {
-      void queryClient.invalidateQueries({
-        queryKey: dbViewQueryOptions(path, vars.table).queryKey,
+    onSuccess: (_data, vars) => {
+      queryClient.setQueryData(dbViewQueryOptions(path, vars.table).queryKey, {
+        config: vars.config,
       })
     },
   })
@@ -386,9 +403,9 @@ export default function DatabaseView({ path }: { path: string }) {
   const invalidateTable = React.useCallback(() => {
     if (!active) return
     void queryClient.invalidateQueries({
-      queryKey: dbTableQueryOptions(path, active).queryKey,
+      queryKey: dbTableQueryOptions(path, active, offset).queryKey,
     })
-  }, [queryClient, path, active])
+  }, [queryClient, path, active, offset])
   // Column add/drop can change the schema *and* the table set, so refresh both.
   const invalidateTableAndTables = React.useCallback(() => {
     invalidateTable()
@@ -399,11 +416,9 @@ export default function DatabaseView({ path }: { path: string }) {
 
   const cellMutation = useMutation({
     mutationFn: updateDatabaseCell,
-    onSettled: invalidateTable,
   })
   const optionMutation = useMutation({
     mutationFn: addColumnOption,
-    onSettled: invalidateTable,
   })
   const addRowMutation = useMutation({
     mutationFn: addDatabaseRow,
@@ -541,6 +556,9 @@ export default function DatabaseView({ path }: { path: string }) {
               filters={filters}
               onChange={setFilters}
             />
+            {page.totalRows > page.pageSize && (
+              <DatabasePager page={page} onOffsetChange={setOffset} />
+            )}
           </div>
         )}
       </div>
@@ -660,6 +678,7 @@ export default function DatabaseView({ path }: { path: string }) {
               })
             )
           }
+          onOffsetChange={setOffset}
         />
       ) : null}
 
@@ -696,6 +715,7 @@ function TableGrid({
   onAddColumn,
   onAddRow,
   onDeleteRow,
+  onOffsetChange,
 }: {
   page: DbTablePage
   rows: Array<DbRow>
@@ -712,6 +732,7 @@ function TableGrid({
   onAddColumn: (name: string, kind: DbColumnKind) => void
   onAddRow: () => void
   onDeleteRow: (rowid: number) => void
+  onOffsetChange: (offset: number) => void
 }) {
   const total = page.totalRows
   const shown = rows.length
@@ -817,15 +838,51 @@ function TableGrid({
             read-only
           </span>
         )}
-        <span className="font-mono text-[11px] text-muted-foreground">
-          {total === 0
-            ? "No rows"
-            : shown === total
-              ? `${total} row${total === 1 ? "" : "s"}`
-              : `${shown} of ${total} rows`}
-        </span>
+        <div className="flex items-center gap-2">
+          {total > page.pageSize && (
+            <DatabasePager page={page} onOffsetChange={onOffsetChange} />
+          )}
+          <span className="font-mono text-[11px] text-muted-foreground">
+            {total === 0
+              ? "No rows"
+              : `${page.offset + 1}–${page.offset + shown} of ${total} rows`}
+          </span>
+        </div>
       </div>
     </div>
+  )
+}
+
+function DatabasePager({
+  page,
+  onOffsetChange,
+}: {
+  page: DbTablePage
+  onOffsetChange: (offset: number) => void
+}) {
+  const previous = Math.max(0, page.offset - page.pageSize)
+  const next = page.offset + page.pageSize
+  return (
+    <span className="flex items-center gap-1">
+      <button
+        type="button"
+        aria-label="Previous page"
+        disabled={page.offset === 0}
+        onClick={() => onOffsetChange(previous)}
+        className="flex size-7 items-center justify-center rounded-md text-muted-foreground hover:bg-[var(--sand-100)] disabled:opacity-30"
+      >
+        <ChevronLeftIcon className="size-4" />
+      </button>
+      <button
+        type="button"
+        aria-label="Next page"
+        disabled={next >= page.totalRows}
+        onClick={() => onOffsetChange(next)}
+        className="flex size-7 items-center justify-center rounded-md text-muted-foreground hover:bg-[var(--sand-100)] disabled:opacity-30"
+      >
+        <ChevronRightIcon className="size-4" />
+      </button>
+    </span>
   )
 }
 
@@ -1339,10 +1396,11 @@ function RowPage({
 
   const saveBodyMutation = useMutation({
     mutationFn: saveRowBody,
-    onSettled: () => {
-      void queryClient.invalidateQueries({
-        queryKey: rowBodyQueryOptions(path, page.table, rowid).queryKey,
-      })
+    onSuccess: (_data, vars) => {
+      queryClient.setQueryData(
+        rowBodyQueryOptions(path, page.table, rowid).queryKey,
+        { body: vars.data.body }
+      )
     },
   })
 

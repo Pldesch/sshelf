@@ -15,47 +15,36 @@ import {
 import { Skeleton } from "@/components/ui/skeleton"
 import { EntryContextMenu } from "@/components/entry-context-menu"
 import { FileTypeIcon } from "@/components/file-icon"
+import { useQuery } from "@tanstack/react-query"
+import { browseQueryOptions } from "@/lib/queries"
 import type { RemoteEntry } from "@/server/ssh"
 
-// Expansion survives route changes (the tree remounts when switching
-// between the root route and path routes).
+// Expansion also survives setup-shell transitions and development remounts.
 const expandedFolders = new Map<string, boolean>()
-
-function childrenOf(
-  entries: Array<RemoteEntry>,
-  path: string
-): Array<RemoteEntry> {
-  const prefix = path ? `${path}/` : ""
-  return entries.filter(
-    (entry) =>
-      entry.path.startsWith(prefix) &&
-      entry.path !== path &&
-      !entry.path.slice(prefix.length).includes("/")
-  )
-}
 
 function FolderNode({
   entry,
-  entries,
   activePath,
-  defaultOpen = false,
 }: {
   entry: RemoteEntry
-  entries: Array<RemoteEntry>
   activePath: string
-  defaultOpen?: boolean
 }) {
   const [open, setOpen] = React.useState(
     expandedFolders.get(entry.path) ??
-      (defaultOpen ||
-        activePath === entry.path ||
-        activePath.startsWith(`${entry.path}/`))
+      (activePath === entry.path || activePath.startsWith(`${entry.path}/`))
   )
 
   function handleOpenChange(next: boolean) {
     expandedFolders.set(entry.path, next)
     setOpen(next)
   }
+
+  React.useEffect(() => {
+    if (activePath === entry.path || activePath.startsWith(`${entry.path}/`)) {
+      expandedFolders.set(entry.path, true)
+      setOpen(true)
+    }
+  }, [activePath, entry.path])
 
   return (
     <Collapsible open={open} onOpenChange={handleOpenChange} asChild>
@@ -77,11 +66,9 @@ function FolderNode({
         </EntryContextMenu>
         <CollapsibleContent>
           <SidebarMenuSub className="mr-0 pr-0">
-            <TreeLevel
-              entries={entries}
-              parentPath={entry.path}
-              activePath={activePath}
-            />
+            {open && (
+              <DirectoryLevel parentPath={entry.path} activePath={activePath} />
+            )}
           </SidebarMenuSub>
         </CollapsibleContent>
       </SidebarMenuItem>
@@ -116,30 +103,38 @@ function FileNode({
 
 function TreeLevel({
   entries,
-  parentPath,
   activePath,
 }: {
   entries: Array<RemoteEntry>
-  parentPath: string
   activePath: string
 }) {
   return (
     <>
-      {childrenOf(entries, parentPath).map((entry) =>
+      {entries.map((entry) =>
         entry.type === "dir" ? (
-          <FolderNode
-            key={entry.path}
-            entry={entry}
-            entries={entries}
-            activePath={activePath}
-            defaultOpen={parentPath === "" && entry.name === "Process"}
-          />
+          <FolderNode key={entry.path} entry={entry} activePath={activePath} />
         ) : (
           <FileNode key={entry.path} entry={entry} activePath={activePath} />
         )
       )}
     </>
   )
+}
+
+function DirectoryLevel({
+  parentPath,
+  activePath,
+}: {
+  parentPath: string
+  activePath: string
+}) {
+  const query = useQuery(browseQueryOptions(parentPath))
+  // Keep expansion visually quiet while the direct children arrive. Skeleton
+  // rows looked like temporary files and caused an especially odd flash for
+  // empty folders, which legitimately resolve to no child rows at all.
+  if (!query.data) return null
+  if (query.data.kind !== "dir") return null
+  return <TreeLevel entries={query.data.entries} activePath={activePath} />
 }
 
 export function FileTree({
@@ -160,7 +155,7 @@ export function FileTree({
   }
   return (
     <SidebarMenu>
-      <TreeLevel entries={entries} parentPath="" activePath={activePath} />
+      <TreeLevel entries={entries} activePath={activePath} />
     </SidebarMenu>
   )
 }

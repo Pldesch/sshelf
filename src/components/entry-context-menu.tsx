@@ -1,5 +1,5 @@
 import * as React from "react"
-import { useLocation, useNavigate, useRouter } from "@tanstack/react-router"
+import { useLocation, useNavigate } from "@tanstack/react-router"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 import {
   CopyIcon,
@@ -38,8 +38,8 @@ import {
   moveEntry,
   renameFile,
 } from "@/server/files"
-import { useTree } from "@/lib/use-tree"
-import { treeQueryOptions } from "@/lib/queries"
+import { useWorkspace } from "@/lib/use-tree"
+import { browseQueryOptions, directoriesQueryOptions } from "@/lib/queries"
 import { nameOf, parentOf, rawFileUrl } from "@/lib/file-kinds"
 
 const ENTRY_DRAG_MIME = "application/x-sshelf-entry"
@@ -56,42 +56,58 @@ export function EntryContextMenu({
   entry: EntryRef
   children: React.ReactNode
 }) {
-  const router = useRouter()
   const navigate = useNavigate()
   const location = useLocation()
-  const { tree } = useTree()
+  const { tree } = useWorkspace()
   const root = tree?.root ?? ""
   const queryClient = useQueryClient()
 
-  // Every filesystem change invalidates all remote-derived caches; the active
-  // route's loader (re-run via router.invalidate) then refetches its listing.
-  const invalidateRemote = React.useCallback(() => {
-    void queryClient.invalidateQueries()
-  }, [queryClient])
+  const refreshDirectories = React.useCallback(
+    (...paths: Array<string>) => {
+      for (const path of new Set(paths)) {
+        void queryClient.invalidateQueries({
+          queryKey: browseQueryOptions(path).queryKey,
+        })
+        if (path === "") {
+          void queryClient.invalidateQueries({ queryKey: ["tree"] })
+        }
+      }
+      void queryClient.invalidateQueries({ queryKey: ["directories"] })
+    },
+    [queryClient]
+  )
+
+  const forgetPath = React.useCallback(
+    (path: string) => {
+      queryClient.removeQueries({
+        predicate: (query) =>
+          query.queryKey[0] === "browse" &&
+          typeof query.queryKey[1] === "string" &&
+          (query.queryKey[1] === path ||
+            query.queryKey[1].startsWith(`${path}/`)),
+      })
+    },
+    [queryClient]
+  )
 
   const deleteMutation = useMutation({
     mutationFn: (path: string) => deletePath({ data: { path } }),
-    onSuccess: invalidateRemote,
   })
   const renameMutation = useMutation({
     mutationFn: (vars: { path: string; name: string }) =>
       renameFile({ data: vars }),
-    onSuccess: invalidateRemote,
   })
   const moveMutation = useMutation({
     mutationFn: (vars: { path: string; parentPath: string }) =>
       moveEntry({ data: vars }),
-    onSuccess: invalidateRemote,
   })
   const createFolderMutation = useMutation({
     mutationFn: (vars: { parentPath: string; name: string }) =>
       createFolder({ data: vars }),
-    onSuccess: invalidateRemote,
   })
   const createFileMutation = useMutation({
     mutationFn: (vars: { parentPath: string; name: string }) =>
       createFile({ data: vars }),
-    onSuccess: invalidateRemote,
   })
 
   const [confirmOpen, setConfirmOpen] = React.useState(false)
@@ -143,32 +159,30 @@ export function EntryContextMenu({
   }
 
   async function finishMutation(oldPath: string, newPath: string) {
+    refreshDirectories(parentOf(oldPath), parentOf(newPath))
+    forgetPath(oldPath)
     const current = currentPath()
     if (current === oldPath) {
       await navigateToPath(newPath)
     } else if (current.startsWith(`${oldPath}/`)) {
       await navigateToPath(`${newPath}${current.slice(oldPath.length)}`)
     }
-    await router.invalidate()
   }
 
   async function loadDestinationOptions() {
     try {
-      const result = await queryClient.ensureQueryData(treeQueryOptions())
+      const result = await queryClient.ensureQueryData(
+        directoriesQueryOptions()
+      )
       setDestinationOptions([
         { path: "", name: "All files" },
-        ...result.entries
+        ...result
           .filter(
-            (candidate) =>
-              candidate.type === "dir" &&
-              (!isFolder ||
-                (candidate.path !== entry.path &&
-                  !candidate.path.startsWith(`${entry.path}/`)))
+            (path) =>
+              !isFolder ||
+              (path !== entry.path && !path.startsWith(`${entry.path}/`))
           )
-          .map((candidate) => ({
-            path: candidate.path,
-            name: candidate.path,
-          })),
+          .map((path) => ({ path, name: path })),
       ])
     } catch (err) {
       setMoveError(
@@ -183,6 +197,8 @@ export function EntryContextMenu({
     setDeleteError(null)
     try {
       await deleteMutation.mutateAsync(entry.path)
+      refreshDirectories(parentOf(entry.path))
+      forgetPath(entry.path)
       setConfirmOpen(false)
       // If the deleted item (or something inside it) is open, step up.
       const current = currentPath()
@@ -190,7 +206,6 @@ export function EntryContextMenu({
         const parent = parentOf(entry.path)
         await navigateToPath(parent)
       }
-      await router.invalidate()
     } catch (err) {
       setDeleteError(err instanceof Error ? err.message : "Delete failed")
     } finally {
@@ -244,7 +259,7 @@ export function EntryContextMenu({
         name: newFolderName,
       })
       setCreateFolderOpen(false)
-      await router.invalidate()
+      refreshDirectories(entry.path)
     } catch (err) {
       setCreateError(
         err instanceof Error ? err.message : "Could not create folder"
@@ -264,7 +279,7 @@ export function EntryContextMenu({
         name: newFileName,
       })
       setCreateFileOpen(false)
-      await router.invalidate()
+      refreshDirectories(entry.path)
       // Open the new file straight away in the markdown editor.
       await navigateToPath(result.path)
     } catch (err) {
@@ -312,8 +327,7 @@ export function EntryContextMenu({
         throw new Error((await response.text()) || "Upload failed")
       }
       setUploadOpen(false)
-      invalidateRemote()
-      await router.invalidate()
+      refreshDirectories(entry.path)
     } catch (err) {
       setUploadError(err instanceof Error ? err.message : "Upload failed")
     } finally {

@@ -1,9 +1,13 @@
 import { createServerFn } from "@tanstack/react-start"
 import {
   SshError,
+  getCurrentHost,
+  invalidateRemoteCacheKey,
+  markRemoteMutation,
   resolveRemotePath,
   runRemote,
   shellQuote,
+  withCache,
 } from "@/server/ssh"
 
 /** Cap rows read in one page so a huge table can't flood the client. */
@@ -105,16 +109,26 @@ function sqlLiteral(value: string | null): string {
 // `PRAGMA busy_timeout` would emit a row and corrupt the JSON we parse).
 const BUSY_TIMEOUT = `-cmd ${shellQuote(".timeout 5000")}`
 
-// All sqlite3 invocations run through this chain so this process never starts
-// two of them at once — concurrent writers otherwise collide with "database is
-// locked". Reads are serialized too, which is fine at this scale.
-let dbChain: Promise<unknown> = Promise.resolve()
-function withDbLock<T>(fn: () => Promise<T>): Promise<T> {
-  const run = dbChain.then(fn, fn)
-  dbChain = run.then(
+// Writes are serialized per database. Reads wait for the writes already queued
+// for their database and can then run concurrently; an unrelated database never
+// blocks behind this one.
+const dbWriteChains = new Map<string, Promise<unknown>>()
+function withDbRead<T>(file: string, fn: () => Promise<T>): Promise<T> {
+  const writes = dbWriteChains.get(file) ?? Promise.resolve()
+  return writes.then(fn, fn)
+}
+
+function withDbWrite<T>(file: string, fn: () => Promise<T>): Promise<T> {
+  const previous = dbWriteChains.get(file) ?? Promise.resolve()
+  const run = previous.then(fn, fn)
+  const settled = run.then(
     () => undefined,
     () => undefined
   )
+  dbWriteChains.set(file, settled)
+  void settled.finally(() => {
+    if (dbWriteChains.get(file) === settled) dbWriteChains.delete(file)
+  })
   return run
 }
 
@@ -129,7 +143,7 @@ async function queryDb(
   sql: string
 ): Promise<Array<Record<string, DbValue>>> {
   const command = `sqlite3 -readonly -json ${BUSY_TIMEOUT} ${shellQuote(absoluteFile)} ${shellQuote(sql)}`
-  const out = (await withDbLock(() => runRemote(command))).trim()
+  const out = (await withDbRead(absoluteFile, () => runRemote(command))).trim()
   // sqlite3 prints nothing for an empty result set.
   if (!out) return []
   try {
@@ -142,7 +156,8 @@ async function queryDb(
 /** Run a writing statement (no `-readonly`, no JSON output). */
 async function execDb(absoluteFile: string, sql: string): Promise<void> {
   const command = `sqlite3 ${BUSY_TIMEOUT} ${shellQuote(absoluteFile)} ${shellQuote(sql)}`
-  await withDbLock(() => runRemote(command))
+  await withDbWrite(absoluteFile, () => runRemote(command))
+  markRemoteMutation()
 }
 
 async function ensureMetaTable(absoluteFile: string): Promise<void> {
@@ -191,15 +206,19 @@ async function readMeta(
 }
 
 async function listTables(absoluteFile: string): Promise<Array<string>> {
-  const rows = await queryDb(
-    absoluteFile,
-    "SELECT name FROM sqlite_master WHERE type = 'table' " +
-      "AND name NOT LIKE 'sqlite_%' ORDER BY name"
-  )
-  // Hide our own sidecar tables from the table picker.
-  return rows
-    .map((r) => String(r.name))
-    .filter((name) => !name.startsWith("_codex_"))
+  const key = `db:tables:${getCurrentHost() ?? ""}:${absoluteFile}`
+  const result = await withCache(key, 30_000, async () => {
+    const rows = await queryDb(
+      absoluteFile,
+      "SELECT name FROM sqlite_master WHERE type = 'table' " +
+        "AND name NOT LIKE 'sqlite_%' ORDER BY name"
+    )
+    // Hide our own sidecar tables from the table picker.
+    return rows
+      .map((r) => String(r.name))
+      .filter((name) => !name.startsWith("_codex_"))
+  })
+  return result.value
 }
 
 /** Confirm the table exists (rejects sidecar tables too) and return its columns. */
@@ -207,11 +226,21 @@ async function tableColumns(
   absoluteFile: string,
   table: string
 ): Promise<Array<Record<string, DbValue>>> {
-  const tables = await listTables(absoluteFile)
-  if (!tables.includes(table)) {
-    throw new SshError(`Table "${table}" was not found`)
-  }
-  return queryDb(absoluteFile, `PRAGMA table_info(${quoteIdent(table)})`)
+  const key = `db:columns:${getCurrentHost() ?? ""}:${absoluteFile}:${table}`
+  const result = await withCache(key, 30_000, async () => {
+    const tables = await listTables(absoluteFile)
+    if (!tables.includes(table)) {
+      throw new SshError(`Table "${table}" was not found`)
+    }
+    return queryDb(absoluteFile, `PRAGMA table_info(${quoteIdent(table)})`)
+  })
+  return result.value
+}
+
+function invalidateColumnCache(absoluteFile: string, table: string) {
+  invalidateRemoteCacheKey(
+    `db:columns:${getCurrentHost() ?? ""}:${absoluteFile}:${table}`
+  )
 }
 
 export const listDatabaseTables = createServerFn()
@@ -243,7 +272,7 @@ export const readDatabaseTable = createServerFn()
     }
 
     const ident = quoteIdent(table)
-    const info = await queryDb(file, `PRAGMA table_info(${ident})`)
+    const info = await tableColumns(file, table)
     const meta = await readMeta(file, table)
     const columns: Array<DbColumn> = info.map((c) => {
       const name = String(c.name)
@@ -264,18 +293,22 @@ export const readDatabaseTable = createServerFn()
     const offset = Math.max(0, Math.floor(data.offset ?? 0))
 
     // Carry each row's rowid so edits can target it. WITHOUT ROWID tables have
-    // no rowid — fall back to a read-only listing for those. All rows are
-    // returned (no LIMIT); the SSH output buffer guards against extreme sizes.
+    // no rowid — fall back to a read-only listing for those. Only one page is
+    // transferred; large databases never create an unbounded DOM or SSH result.
     let editable = true
     let rawRows: Array<Record<string, DbValue>>
     try {
       rawRows = await queryDb(
         file,
-        `SELECT rowid AS ${ROWID_ALIAS}, * FROM ${ident}`
+        `SELECT rowid AS ${ROWID_ALIAS}, * FROM ${ident} ` +
+          `LIMIT ${PAGE_SIZE} OFFSET ${offset}`
       )
     } catch {
       editable = false
-      rawRows = await queryDb(file, `SELECT * FROM ${ident}`)
+      rawRows = await queryDb(
+        file,
+        `SELECT * FROM ${ident} LIMIT ${PAGE_SIZE} OFFSET ${offset}`
+      )
     }
 
     const rows: Array<DbRow> = rawRows.map((raw, index) => {
@@ -491,6 +524,7 @@ export const addDatabaseColumn = createServerFn({ method: "POST" })
           `ON CONFLICT(tbl, col) DO UPDATE SET kind = excluded.kind`
       )
     }
+    invalidateColumnCache(file, data.table)
     return { ok: true }
   })
 
@@ -518,6 +552,7 @@ export const dropDatabaseColumn = createServerFn({ method: "POST" })
     } catch {
       // No metadata table — nothing to clean up.
     }
+    invalidateColumnCache(file, data.table)
     return { ok: true }
   })
 

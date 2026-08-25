@@ -11,7 +11,6 @@ import {
   RefreshCwIcon,
   WifiOffIcon,
 } from "lucide-react"
-import { AppSidebar } from "@/components/app-sidebar"
 import {
   AlertDialog,
   AlertDialogCancel,
@@ -31,11 +30,7 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "@/components/ui/empty"
-import {
-  SidebarInset,
-  SidebarProvider,
-  SidebarTrigger,
-} from "@/components/ui/sidebar"
+import { SidebarTrigger } from "@/components/ui/sidebar"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Spinner } from "@/components/ui/spinner"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -114,34 +109,31 @@ function CyrusShell({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <SidebarProvider>
-      <AppSidebar activePath="" />
-      <SidebarInset className="min-w-0">
-        <header className="sticky top-0 z-10 flex shrink-0 items-center gap-3 bg-background/85 px-5 py-3 backdrop-blur-md">
-          <SidebarTrigger />
-          <h1 className="flex items-center gap-2 text-base font-semibold text-[var(--navy-700)]">
-            <BotIcon className="size-4" aria-hidden />
-            Cyrus
-          </h1>
-          <div className="flex-1" />
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={() => void refresh()}
-            disabled={refreshing}
-          >
-            <RefreshCwIcon
-              data-icon="inline-start"
-              className={refreshing ? "animate-spin" : undefined}
-            />
-            Refresh
-          </Button>
-        </header>
-        <div className="mx-auto flex w-full max-w-[960px] min-w-0 flex-col gap-5 px-8 pt-3 pb-12">
-          {children}
-        </div>
-      </SidebarInset>
-    </SidebarProvider>
+    <div className="min-w-0 flex-1">
+      <header className="sticky top-0 z-10 flex shrink-0 items-center gap-3 bg-background/85 px-5 py-3 backdrop-blur-md">
+        <SidebarTrigger />
+        <h1 className="flex items-center gap-2 text-base font-semibold text-[var(--navy-700)]">
+          <BotIcon className="size-4" aria-hidden />
+          Cyrus
+        </h1>
+        <div className="flex-1" />
+        <Button
+          variant="secondary"
+          size="sm"
+          onClick={() => void refresh()}
+          disabled={refreshing}
+        >
+          <RefreshCwIcon
+            data-icon="inline-start"
+            className={refreshing ? "animate-spin" : undefined}
+          />
+          Refresh
+        </Button>
+      </header>
+      <div className="mx-auto flex w-full max-w-[960px] min-w-0 flex-col gap-5 px-8 pt-3 pb-12">
+        {children}
+      </div>
+    </div>
   )
 }
 

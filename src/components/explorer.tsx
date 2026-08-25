@@ -8,7 +8,6 @@ import {
   TriangleAlertIcon,
   WifiOffIcon,
 } from "lucide-react"
-import { AppSidebar } from "@/components/app-sidebar"
 import { FileSearchDialog } from "@/components/file-search-dialog"
 import { EntryContextMenu } from "@/components/entry-context-menu"
 import { FileTypeIcon } from "@/components/file-icon"
@@ -32,11 +31,7 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "@/components/ui/empty"
-import {
-  SidebarInset,
-  SidebarProvider,
-  SidebarTrigger,
-} from "@/components/ui/sidebar"
+import { SidebarTrigger } from "@/components/ui/sidebar"
 import { Skeleton } from "@/components/ui/skeleton"
 import {
   useMutation,
@@ -57,8 +52,7 @@ import {
   parentOf,
   rawFileUrl,
 } from "@/lib/file-kinds"
-import { useRemoteFileEvents } from "@/lib/use-file-events"
-import { useTree } from "@/lib/use-tree"
+import { useWorkspace } from "@/lib/use-tree"
 import type { QueryClient } from "@tanstack/react-query"
 import type { BrowseResult, FileView as FileData } from "@/server/files"
 import type { RemoteEntry, SearchResult } from "@/server/ssh"
@@ -169,54 +163,54 @@ function ExplorerShell({
   file: FileData | null
   children: React.ReactNode
 }) {
-  useRemoteFileEvents()
-  const { tree } = useTree()
+  const { tree } = useWorkspace()
   const root = tree?.root ?? ""
   // Data-heavy previews use the full available pane; prose keeps a readable column.
   const fullPane = file
     ? ["database", "html"].includes(fileKindOf(nameOf(file.path)))
     : false
   return (
-    <SidebarProvider>
-      <AppSidebar activePath={activePath} />
-      <SidebarInset
-        className={fullPane ? "h-svh min-w-0 overflow-hidden" : "min-w-0"}
-      >
-        {/* min-w-0 lets the inset stay at viewport width so wide tables
+    <div
+      className={
+        fullPane
+          ? "flex h-svh min-w-0 flex-1 flex-col overflow-hidden"
+          : "min-w-0 flex-1"
+      }
+    >
+      {/* min-w-0 lets the inset stay at viewport width so wide tables
             scroll inside their own container instead of stretching the page. */}
-        <header className="sticky top-0 z-10 flex shrink-0 items-center gap-3 bg-background/85 px-5 py-3 backdrop-blur-md">
-          <SidebarTrigger />
-          <PathBreadcrumb path={activePath} isSearch={Boolean(currentQuery)} />
-          <div className="flex-1" />
-          <FileSearchDialog />
-          {file && (
-            <>
-              <span
-                title={root ? `${root}/${file.path}` : file.path}
-                className="hidden font-mono text-[11px] whitespace-nowrap text-muted-foreground sm:inline"
-              >
-                {formatBytes(file.size)} · {formatDate(file.modifiedAt)}
-              </span>
-              <Button variant="secondary" size="sm" asChild>
-                <a href={rawFileUrl(file.path, true)}>
-                  <DownloadIcon data-icon="inline-start" />
-                  Download
-                </a>
-              </Button>
-            </>
-          )}
-        </header>
-        <div
-          className={
-            fullPane
-              ? "flex min-h-0 w-full min-w-0 flex-1 flex-col overflow-hidden"
-              : "mx-auto w-full max-w-[960px] min-w-0 px-8 pt-3 pb-12"
-          }
-        >
-          {children}
-        </div>
-      </SidebarInset>
-    </SidebarProvider>
+      <header className="sticky top-0 z-10 flex shrink-0 items-center gap-3 bg-background/85 px-5 py-3 backdrop-blur-md">
+        <SidebarTrigger />
+        <PathBreadcrumb path={activePath} isSearch={Boolean(currentQuery)} />
+        <div className="flex-1" />
+        <FileSearchDialog />
+        {file && (
+          <>
+            <span
+              title={root ? `${root}/${file.path}` : file.path}
+              className="hidden font-mono text-[11px] whitespace-nowrap text-muted-foreground sm:inline"
+            >
+              {formatBytes(file.size)} · {formatDate(file.modifiedAt)}
+            </span>
+            <Button variant="secondary" size="sm" asChild>
+              <a href={rawFileUrl(file.path, true)}>
+                <DownloadIcon data-icon="inline-start" />
+                Download
+              </a>
+            </Button>
+          </>
+        )}
+      </header>
+      <div
+        className={
+          fullPane
+            ? "flex min-h-0 w-full min-w-0 flex-1 flex-col overflow-hidden"
+            : "mx-auto w-full max-w-[960px] min-w-0 px-8 pt-3 pb-12"
+        }
+      >
+        {children}
+      </div>
+    </div>
   )
 }
 
@@ -309,7 +303,7 @@ function DirectoryView({
   path: string
   entries: Array<RemoteEntry>
 }) {
-  const { tree } = useTree()
+  const { tree } = useWorkspace()
   const root = tree?.root ?? ""
   const folderCount = entries.filter((e) => e.type === "dir").length
   const fileCount = entries.length - folderCount
@@ -459,17 +453,30 @@ function MarkdownCard({ path, content }: { path: string; content: string }) {
     mutationFn: (full: string) => saveFile({ data: { path, content: full } }),
     onSuccess: (_result, full) => {
       setText(full)
+      const size = new TextEncoder().encode(full).byteLength
+      const modifiedAt = Date.now()
       // Patch the cached file view so reopening shows the saved text without a
       // refetch that would yank the editor out from under the user.
       queryClient.setQueryData<BrowseResult>(
         browseQueryOptions(path).queryKey,
         (old) => {
           if (!old || old.kind !== "file") return old
-          return { ...old, content: full }
+          return { ...old, content: full, size, modifiedAt }
         }
       )
-      // The file's size/mtime changed — let the tree refresh in the background.
-      void queryClient.invalidateQueries({ queryKey: ["tree"] })
+      const parent = parentOf(path)
+      queryClient.setQueryData<BrowseResult>(
+        browseQueryOptions(parent).queryKey,
+        (old) => {
+          if (!old || old.kind !== "dir") return old
+          return {
+            ...old,
+            entries: old.entries.map((entry) =>
+              entry.path === path ? { ...entry, size, modifiedAt } : entry
+            ),
+          }
+        }
+      )
     },
   })
 
@@ -519,7 +526,7 @@ function SearchResults({
   query: string
   results: Array<SearchResult>
 }) {
-  const { tree } = useTree()
+  const { tree } = useWorkspace()
   const root = tree?.root ?? ""
   return (
     <>

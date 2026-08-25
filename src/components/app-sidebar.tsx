@@ -23,12 +23,15 @@ import {
   SidebarMenuItem,
 } from "@/components/ui/sidebar"
 import { FileTree } from "@/components/file-tree"
-import { useTree } from "@/lib/use-tree"
+import { useWorkspace } from "@/lib/use-tree"
 
-export function AppSidebar({ activePath }: { activePath: string }) {
-  const { tree, state, refresh } = useTree()
+export function AppSidebar() {
+  const { tree, state, refresh } = useWorkspace()
   const location = useLocation()
   const onCyrus = location.pathname.startsWith("/cyrus")
+  const activePath = onCyrus
+    ? ""
+    : decodeURIComponent(location.pathname).replace(/^\/+/, "")
 
   return (
     <Sidebar>
