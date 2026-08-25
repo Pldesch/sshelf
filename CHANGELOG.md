@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Added visible directory and per-entry action controls, arbitrary file
+  creation, folder renaming, and consistent operation notifications.
+- Added reversible remote trash with Undo and Markdown revision-conflict
+  resolution, preventing accidental data loss during deletes and concurrent
+  edits.
+
+### Changed
+
+- Database search, filters, sorting, and row counts now run against the complete
+  SQLite table before bounded pagination.
+
 ## [0.7.0] - 2026-08-25
 
 ### Changed

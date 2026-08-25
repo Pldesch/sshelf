@@ -10,6 +10,7 @@ import {
 } from "lucide-react"
 import { FileSearchDialog } from "@/components/file-search-dialog"
 import { EntryContextMenu } from "@/components/entry-context-menu"
+import { DirectoryActions } from "@/components/directory-actions"
 import { FileTypeIcon } from "@/components/file-icon"
 import { SetupScreen } from "@/components/setup-screen"
 import { ImageViewer, PdfViewer, UnsupportedViewer } from "@/components/viewers"
@@ -33,12 +34,15 @@ import {
 } from "@/components/ui/empty"
 import { SidebarTrigger } from "@/components/ui/sidebar"
 import { Skeleton } from "@/components/ui/skeleton"
+import { Spinner } from "@/components/ui/spinner"
 import {
   useMutation,
   useQueryClient,
   useSuspenseQuery,
 } from "@tanstack/react-query"
-import { saveFile } from "@/server/files"
+import { reloadFile, saveFile } from "@/server/files"
+import { EDIT_CONFLICT_MARKER } from "@/lib/edit-conflict"
+import { useToast } from "@/components/ui/toast"
 import {
   browseQueryOptions,
   searchQueryOptions,
@@ -276,22 +280,27 @@ function CompactHeading({
   title,
   fullPath,
   meta,
+  actions,
 }: {
   title: string
   fullPath: string
   meta: React.ReactNode
+  actions?: React.ReactNode
 }) {
   return (
-    <div className="mb-3 flex items-baseline justify-between gap-4">
+    <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
       <h1
         title={fullPath}
         className="truncate text-base font-semibold text-[var(--navy-700)]"
       >
         {title}
       </h1>
-      <span className="shrink-0 font-mono text-[11px] text-muted-foreground">
-        {meta}
-      </span>
+      <div className="flex flex-wrap items-center justify-end gap-3">
+        <span className="shrink-0 font-mono text-[11px] text-muted-foreground">
+          {meta}
+        </span>
+        {actions}
+      </div>
     </div>
   )
 }
@@ -319,6 +328,7 @@ function DirectoryView({
             file{fileCount === 1 ? "" : "s"}
           </>
         }
+        actions={<DirectoryActions path={path} />}
       />
       {entries.length === 0 ? (
         <Empty className="rounded-xl bg-card shadow-sm">
@@ -358,31 +368,35 @@ function EntryRow({
   isLast: boolean
 }) {
   return (
-    <EntryContextMenu entry={entry}>
-      <Link
-        to="/$"
-        params={{ _splat: entry.path }}
-        className={`flex items-center gap-4 px-5 py-3.5 transition-colors hover:bg-[var(--sand-100)] ${isFirst ? "rounded-t-xl" : ""} ${isLast ? "rounded-b-xl" : ""}`}
-      >
-        <span className="flex size-9 items-center justify-center rounded-lg bg-muted text-[var(--navy-500)]">
-          <FileTypeIcon
-            name={entry.name}
-            type={entry.type}
-            className="size-4"
-          />
-        </span>
-        <span className="min-w-0 flex-1">
-          <span className="block truncate text-[15px] font-semibold text-[var(--navy-700)]">
-            {entry.name}
+    <div
+      className={`flex transition-colors hover:bg-[var(--sand-100)] ${isFirst ? "rounded-t-xl" : ""} ${isLast ? "rounded-b-xl" : ""}`}
+    >
+      <EntryContextMenu entry={entry} showMenuButton>
+        <Link
+          to="/$"
+          params={{ _splat: entry.path }}
+          className="flex min-w-0 flex-1 items-center gap-4 px-5 py-3.5"
+        >
+          <span className="flex size-9 items-center justify-center rounded-lg bg-muted text-[var(--navy-500)]">
+            <FileTypeIcon
+              name={entry.name}
+              type={entry.type}
+              className="size-4"
+            />
           </span>
-          <span className="font-mono text-[11px] text-muted-foreground">
-            {entry.type === "dir" ? "Folder" : formatBytes(entry.size)} ·{" "}
-            {formatDate(entry.modifiedAt)}
+          <span className="min-w-0 flex-1">
+            <span className="block truncate text-[15px] font-semibold text-[var(--navy-700)]">
+              {entry.name}
+            </span>
+            <span className="font-mono text-[11px] text-muted-foreground">
+              {entry.type === "dir" ? "Folder" : formatBytes(entry.size)} ·{" "}
+              {formatDate(entry.modifiedAt)}
+            </span>
           </span>
-        </span>
-        <ChevronRightIcon className="size-4 text-[var(--stone-400)]" />
-      </Link>
-    </EntryContextMenu>
+          <ChevronRightIcon className="size-4 text-[var(--stone-400)]" />
+        </Link>
+      </EntryContextMenu>
+    </div>
   )
 }
 
@@ -392,7 +406,12 @@ function FileView({ data }: { data: FileData }) {
   return (
     <>
       {kind === "markdown" && data.content !== null ? (
-        <MarkdownCard key={data.path} path={data.path} content={data.content} />
+        <MarkdownCard
+          key={data.path}
+          path={data.path}
+          content={data.content}
+          revision={data.revision}
+        />
       ) : kind === "text" && data.content !== null ? (
         <React.Suspense fallback={<ViewerFallback />}>
           <TextViewer path={data.path} content={data.content} />
@@ -435,10 +454,25 @@ function FileView({ data }: { data: FileData }) {
  * and no SSR crash. `text` holds the latest saved contents so the placeholder
  * stays in sync without refetching.
  */
-function MarkdownCard({ path, content }: { path: string; content: string }) {
+function MarkdownCard({
+  path,
+  content,
+  revision,
+}: {
+  path: string
+  content: string
+  revision: string | null
+}) {
   const [mounted, setMounted] = React.useState(false)
   const [text, setText] = React.useState(content)
+  const [editorGeneration, setEditorGeneration] = React.useState(0)
+  const [conflictingContent, setConflictingContent] = React.useState<
+    string | null
+  >(null)
+  const [resolvingConflict, setResolvingConflict] = React.useState(false)
+  const revisionRef = React.useRef(revision)
   const queryClient = useQueryClient()
+  const { toast } = useToast()
 
   React.useEffect(() => {
     setMounted(true)
@@ -447,21 +481,37 @@ function MarkdownCard({ path, content }: { path: string; content: string }) {
   // Keep in sync if the loader refetches this file (e.g. a remote change).
   React.useEffect(() => {
     setText(content)
-  }, [content])
+    revisionRef.current = revision
+  }, [content, revision])
 
   const { mutateAsync: saveMutate } = useMutation({
-    mutationFn: (full: string) => saveFile({ data: { path, content: full } }),
-    onSuccess: (_result, full) => {
+    mutationFn: (vars: { full: string; force?: boolean }) =>
+      saveFile({
+        data: {
+          path,
+          content: vars.full,
+          expectedRevision: revisionRef.current ?? undefined,
+          force: vars.force,
+        },
+      }),
+    onSuccess: (result, vars) => {
+      const full = vars.full
       setText(full)
-      const size = new TextEncoder().encode(full).byteLength
-      const modifiedAt = Date.now()
+      revisionRef.current = result.revision
+      const { size, modifiedAt } = result
       // Patch the cached file view so reopening shows the saved text without a
       // refetch that would yank the editor out from under the user.
       queryClient.setQueryData<BrowseResult>(
         browseQueryOptions(path).queryKey,
         (old) => {
           if (!old || old.kind !== "file") return old
-          return { ...old, content: full, size, modifiedAt }
+          return {
+            ...old,
+            content: full,
+            revision: result.revision,
+            size,
+            modifiedAt,
+          }
         }
       )
       const parent = parentOf(path)
@@ -482,20 +532,106 @@ function MarkdownCard({ path, content }: { path: string; content: string }) {
 
   const handleSave = React.useCallback(
     async (full: string) => {
-      await saveMutate(full)
+      try {
+        await saveMutate({ full })
+      } catch (cause) {
+        if (
+          cause instanceof Error &&
+          cause.message.includes(EDIT_CONFLICT_MARKER)
+        ) {
+          setConflictingContent(full)
+          throw new Error(
+            "The remote file changed. Choose which version to keep."
+          )
+        }
+        throw cause
+      }
     },
     [saveMutate]
   )
+
+  async function reloadRemoteVersion() {
+    setResolvingConflict(true)
+    try {
+      const fresh = await reloadFile({ data: { path } })
+      if (fresh.content === null)
+        throw new Error("The remote file cannot be edited")
+      setText(fresh.content)
+      revisionRef.current = fresh.revision
+      setConflictingContent(null)
+      setEditorGeneration((value) => value + 1)
+      queryClient.setQueryData(browseQueryOptions(path).queryKey, fresh)
+      toast({ title: "Remote version loaded", variant: "success" })
+    } catch (cause) {
+      toast({
+        title: "Could not reload the file",
+        description: cause instanceof Error ? cause.message : "Reload failed",
+        variant: "error",
+      })
+    } finally {
+      setResolvingConflict(false)
+    }
+  }
+
+  async function keepLocalVersion() {
+    if (conflictingContent === null) return
+    setResolvingConflict(true)
+    try {
+      await saveMutate({ full: conflictingContent, force: true })
+      setConflictingContent(null)
+      setEditorGeneration((value) => value + 1)
+      toast({ title: "Your version was saved", variant: "success" })
+    } catch (cause) {
+      toast({
+        title: "Could not overwrite the remote file",
+        description: cause instanceof Error ? cause.message : "Save failed",
+        variant: "error",
+      })
+    } finally {
+      setResolvingConflict(false)
+    }
+  }
 
   return (
     // No horizontal padding here: in edit mode BlockNote supplies its own 54px
     // content gutter (room for the drag/＋ handles), and the read-only
     // placeholder matches that inset so nothing shifts or overflows the card.
     <div className="rounded-xl bg-card py-7 shadow-sm">
+      {conflictingContent !== null && (
+        <Alert variant="destructive" className="mx-[54px] mb-4 w-auto">
+          <TriangleAlertIcon />
+          <AlertTitle>This file changed somewhere else</AlertTitle>
+          <AlertDescription>
+            <p>
+              Autosave stopped before overwriting the remote changes. Reload the
+              remote version, or explicitly keep your current version.
+            </p>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={resolvingConflict}
+                onClick={() => void reloadRemoteVersion()}
+              >
+                Reload remote
+              </Button>
+              <Button
+                variant="destructive"
+                size="sm"
+                disabled={resolvingConflict}
+                onClick={() => void keepLocalVersion()}
+              >
+                {resolvingConflict && <Spinner data-icon="inline-start" />}
+                Keep my version
+              </Button>
+            </div>
+          </AlertDescription>
+        </Alert>
+      )}
       {mounted ? (
         <React.Suspense fallback={<MarkdownReadOnly path={path} text={text} />}>
           <MarkdownEditor
-            key={path}
+            key={`${path}:${editorGeneration}`}
             content={text}
             onSave={handleSave}
             baseDir={parentOf(path)}
@@ -558,32 +694,37 @@ function SearchResults({
       ) : (
         <div className="flex flex-col rounded-xl bg-card shadow-sm">
           {results.map((result, index) => (
-            <EntryContextMenu key={result.path} entry={result}>
-              <Link
-                to="/$"
-                params={{ _splat: result.path }}
-                className={`flex items-center gap-4 px-5 py-3.5 transition-colors hover:bg-[var(--sand-100)] ${index === 0 ? "rounded-t-xl" : ""} ${index === results.length - 1 ? "rounded-b-xl" : ""}`}
-              >
-                <span className="flex size-9 items-center justify-center rounded-lg bg-muted text-[var(--navy-500)]">
-                  <FileTypeIcon
-                    name={nameOf(result.path)}
-                    type={result.type}
-                    className="size-4"
-                  />
-                </span>
-                <span className="min-w-0 flex-1">
-                  <span className="block truncate text-[15px] font-semibold text-[var(--navy-700)]">
-                    {nameOf(result.path)}
+            <div
+              key={result.path}
+              className={`flex transition-colors hover:bg-[var(--sand-100)] ${index === 0 ? "rounded-t-xl" : ""} ${index === results.length - 1 ? "rounded-b-xl" : ""}`}
+            >
+              <EntryContextMenu entry={result} showMenuButton>
+                <Link
+                  to="/$"
+                  params={{ _splat: result.path }}
+                  className="flex min-w-0 flex-1 items-center gap-4 px-5 py-3.5"
+                >
+                  <span className="flex size-9 items-center justify-center rounded-lg bg-muted text-[var(--navy-500)]">
+                    <FileTypeIcon
+                      name={nameOf(result.path)}
+                      type={result.type}
+                      className="size-4"
+                    />
                   </span>
-                  <span className="block truncate font-mono text-[11px] text-muted-foreground">
-                    {result.path}
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-[15px] font-semibold text-[var(--navy-700)]">
+                      {nameOf(result.path)}
+                    </span>
+                    <span className="block truncate font-mono text-[11px] text-muted-foreground">
+                      {result.path}
+                    </span>
                   </span>
-                </span>
-                <Badge variant="secondary" className="font-mono text-[10px]">
-                  {result.matchedBy === "name" ? "name" : "in text"}
-                </Badge>
-              </Link>
-            </EntryContextMenu>
+                  <Badge variant="secondary" className="font-mono text-[10px]">
+                    {result.matchedBy === "name" ? "name" : "in text"}
+                  </Badge>
+                </Link>
+              </EntryContextMenu>
+            </div>
           ))}
         </div>
       )}
