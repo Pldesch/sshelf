@@ -10,6 +10,7 @@ import {
   FolderInputIcon,
   FolderPlusIcon,
   FolderUpIcon,
+  EllipsisIcon,
   Trash2Icon,
 } from "lucide-react"
 import {
@@ -32,15 +33,28 @@ import {
 import { Input } from "@/components/ui/input"
 import { Spinner } from "@/components/ui/spinner"
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import {
   createFile,
   createFolder,
   deletePath,
   moveEntry,
-  renameFile,
+  renameEntry,
+  restorePath,
 } from "@/server/files"
 import { useWorkspace } from "@/lib/use-tree"
-import { browseQueryOptions, directoriesQueryOptions } from "@/lib/queries"
+import { directoriesQueryOptions } from "@/lib/queries"
 import { nameOf, parentOf, rawFileUrl } from "@/lib/file-kinds"
+import { useToast } from "@/components/ui/toast"
+import {
+  forgetBrowsePath,
+  refreshDirectoryQueries,
+} from "@/lib/workspace-cache"
 
 const ENTRY_DRAG_MIME = "application/x-sshelf-entry"
 
@@ -52,41 +66,26 @@ interface EntryRef {
 export function EntryContextMenu({
   entry,
   children,
+  showMenuButton = false,
 }: {
   entry: EntryRef
   children: React.ReactNode
+  showMenuButton?: boolean
 }) {
   const navigate = useNavigate()
   const location = useLocation()
   const { tree } = useWorkspace()
   const root = tree?.root ?? ""
   const queryClient = useQueryClient()
+  const { toast } = useToast()
 
   const refreshDirectories = React.useCallback(
-    (...paths: Array<string>) => {
-      for (const path of new Set(paths)) {
-        void queryClient.invalidateQueries({
-          queryKey: browseQueryOptions(path).queryKey,
-        })
-        if (path === "") {
-          void queryClient.invalidateQueries({ queryKey: ["tree"] })
-        }
-      }
-      void queryClient.invalidateQueries({ queryKey: ["directories"] })
-    },
+    (...paths: Array<string>) => refreshDirectoryQueries(queryClient, ...paths),
     [queryClient]
   )
 
   const forgetPath = React.useCallback(
-    (path: string) => {
-      queryClient.removeQueries({
-        predicate: (query) =>
-          query.queryKey[0] === "browse" &&
-          typeof query.queryKey[1] === "string" &&
-          (query.queryKey[1] === path ||
-            query.queryKey[1].startsWith(`${path}/`)),
-      })
-    },
+    (path: string) => forgetBrowsePath(queryClient, path),
     [queryClient]
   )
 
@@ -95,7 +94,7 @@ export function EntryContextMenu({
   })
   const renameMutation = useMutation({
     mutationFn: (vars: { path: string; name: string }) =>
-      renameFile({ data: vars }),
+      renameEntry({ data: vars }),
   })
   const moveMutation = useMutation({
     mutationFn: (vars: { path: string; parentPath: string }) =>
@@ -196,7 +195,7 @@ export function EntryContextMenu({
     setDeleting(true)
     setDeleteError(null)
     try {
-      await deleteMutation.mutateAsync(entry.path)
+      const result = await deleteMutation.mutateAsync(entry.path)
       refreshDirectories(parentOf(entry.path))
       forgetPath(entry.path)
       setConfirmOpen(false)
@@ -206,8 +205,36 @@ export function EntryContextMenu({
         const parent = parentOf(entry.path)
         await navigateToPath(parent)
       }
+      toast({
+        title: `${isFolder ? "Folder" : "File"} moved to trash`,
+        description: entry.path,
+        variant: "success",
+        action: {
+          label: "Undo",
+          onClick: async () => {
+            await restorePath({
+              data: {
+                originalPath: result.originalPath,
+                trashPath: result.trashPath,
+              },
+            })
+            refreshDirectories(parentOf(result.originalPath))
+            toast({
+              title: `${isFolder ? "Folder" : "File"} restored`,
+              description: result.originalPath,
+              variant: "success",
+            })
+          },
+        },
+      })
     } catch (err) {
-      setDeleteError(err instanceof Error ? err.message : "Delete failed")
+      const message = err instanceof Error ? err.message : "Delete failed"
+      setDeleteError(message)
+      toast({
+        title: "Could not move item to trash",
+        description: message,
+        variant: "error",
+      })
     } finally {
       setDeleting(false)
     }
@@ -224,8 +251,15 @@ export function EntryContextMenu({
       })
       setRenameOpen(false)
       await finishMutation(entry.path, result.path)
+      toast({
+        title: `${isFolder ? "Folder" : "File"} renamed`,
+        description: result.path,
+        variant: "success",
+      })
     } catch (err) {
-      setRenameError(err instanceof Error ? err.message : "Rename failed")
+      const message = err instanceof Error ? err.message : "Rename failed"
+      setRenameError(message)
+      toast({ title: "Rename failed", description: message, variant: "error" })
     } finally {
       setRenaming(false)
     }
@@ -242,8 +276,15 @@ export function EntryContextMenu({
       })
       setMoveOpen(false)
       await finishMutation(entry.path, result.path)
+      toast({
+        title: `${entryKind} moved`,
+        description: result.path,
+        variant: "success",
+      })
     } catch (err) {
-      setMoveError(err instanceof Error ? err.message : "Move failed")
+      const message = err instanceof Error ? err.message : "Move failed"
+      setMoveError(message)
+      toast({ title: "Move failed", description: message, variant: "error" })
     } finally {
       setMoving(false)
     }
@@ -260,10 +301,16 @@ export function EntryContextMenu({
       })
       setCreateFolderOpen(false)
       refreshDirectories(entry.path)
+      toast({ title: "Folder created", variant: "success" })
     } catch (err) {
-      setCreateError(
+      const message =
         err instanceof Error ? err.message : "Could not create folder"
-      )
+      setCreateError(message)
+      toast({
+        title: "Could not create folder",
+        description: message,
+        variant: "error",
+      })
     } finally {
       setCreating(false)
     }
@@ -280,12 +327,21 @@ export function EntryContextMenu({
       })
       setCreateFileOpen(false)
       refreshDirectories(entry.path)
-      // Open the new file straight away in the markdown editor.
+      toast({
+        title: "File created",
+        description: result.path,
+        variant: "success",
+      })
       await navigateToPath(result.path)
     } catch (err) {
-      setCreateFileError(
+      const message =
         err instanceof Error ? err.message : "Could not create file"
-      )
+      setCreateFileError(message)
+      toast({
+        title: "Could not create file",
+        description: message,
+        variant: "error",
+      })
     } finally {
       setCreatingFile(false)
     }
@@ -328,8 +384,15 @@ export function EntryContextMenu({
       }
       setUploadOpen(false)
       refreshDirectories(entry.path)
+      toast({
+        title: "Import complete",
+        description: `${count} file${plural} added`,
+        variant: "success",
+      })
     } catch (err) {
-      setUploadError(err instanceof Error ? err.message : "Upload failed")
+      const message = err instanceof Error ? err.message : "Upload failed"
+      setUploadError(message)
+      toast({ title: "Import failed", description: message, variant: "error" })
     } finally {
       setUploading(false)
     }
@@ -396,7 +459,11 @@ export function EntryContextMenu({
       })
       await finishMutation(dragged.path, result.path)
     } catch (err) {
-      window.alert(err instanceof Error ? err.message : "Move failed")
+      toast({
+        title: "Move failed",
+        description: err instanceof Error ? err.message : "Could not move item",
+        variant: "error",
+      })
     }
   }
 
@@ -440,7 +507,7 @@ export function EntryContextMenu({
                 }}
               >
                 <FilePlusIcon />
-                New markdown file…
+                New file…
               </ContextMenuItem>
               <ContextMenuItem
                 onSelect={() => {
@@ -470,18 +537,16 @@ export function EntryContextMenu({
               </a>
             </ContextMenuItem>
           )}
-          {entry.type === "file" && (
-            <ContextMenuItem
-              onSelect={() => {
-                setNextName(name)
-                setRenameError(null)
-                setRenameOpen(true)
-              }}
-            >
-              <FilePenLineIcon />
-              Rename file
-            </ContextMenuItem>
-          )}
+          <ContextMenuItem
+            onSelect={() => {
+              setNextName(name)
+              setRenameError(null)
+              setRenameOpen(true)
+            }}
+          >
+            <FilePenLineIcon />
+            Rename {entryKind}
+          </ContextMenuItem>
           <ContextMenuItem
             onSelect={() => {
               setDestinationPath(currentParent)
@@ -502,11 +567,21 @@ export function EntryContextMenu({
             Move {entryKind}…
           </ContextMenuItem>
           <ContextMenuItem
-            onSelect={() =>
-              navigator.clipboard.writeText(
-                root ? `${root}/${entry.path}` : entry.path
-              )
-            }
+            onSelect={() => {
+              void navigator.clipboard
+                .writeText(root ? `${root}/${entry.path}` : entry.path)
+                .then(() => toast({ title: "Path copied", variant: "success" }))
+                .catch((cause) =>
+                  toast({
+                    title: "Could not copy path",
+                    description:
+                      cause instanceof Error
+                        ? cause.message
+                        : "Clipboard unavailable",
+                    variant: "error",
+                  })
+                )
+            }}
           >
             <CopyIcon />
             Copy path
@@ -520,10 +595,98 @@ export function EntryContextMenu({
             }}
           >
             <Trash2Icon />
-            Delete {isFolder ? "folder" : "file"}
+            Move {isFolder ? "folder" : "file"} to trash
           </ContextMenuItem>
         </ContextMenuContent>
       </ContextMenu>
+
+      {showMenuButton && (
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-sm"
+              aria-label={`Actions for ${name}`}
+              className="mr-3 self-center"
+            >
+              <EllipsisIcon />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            {entry.type === "file" && (
+              <DropdownMenuItem asChild>
+                <a href={rawFileUrl(entry.path, true)}>
+                  <DownloadIcon />
+                  Download
+                </a>
+              </DropdownMenuItem>
+            )}
+            <DropdownMenuItem
+              onSelect={() => {
+                setNextName(name)
+                setRenameError(null)
+                setRenameOpen(true)
+              }}
+            >
+              <FilePenLineIcon />
+              Rename {entryKind}
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onSelect={() => {
+                setDestinationPath(currentParent)
+                setDestinationOptions(
+                  currentParent
+                    ? [
+                        { path: "", name: "All files" },
+                        { path: currentParent, name: currentParent },
+                      ]
+                    : [{ path: "", name: "All files" }]
+                )
+                setMoveError(null)
+                setMoveOpen(true)
+                void loadDestinationOptions()
+              }}
+            >
+              <FolderInputIcon />
+              Move {entryKind}…
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onSelect={() => {
+                void navigator.clipboard
+                  .writeText(root ? `${root}/${entry.path}` : entry.path)
+                  .then(() =>
+                    toast({ title: "Path copied", variant: "success" })
+                  )
+                  .catch((cause) =>
+                    toast({
+                      title: "Could not copy path",
+                      description:
+                        cause instanceof Error
+                          ? cause.message
+                          : "Clipboard unavailable",
+                      variant: "error",
+                    })
+                  )
+              }}
+            >
+              <CopyIcon />
+              Copy path
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              variant="destructive"
+              onSelect={() => {
+                setDeleteError(null)
+                setConfirmOpen(true)
+              }}
+            >
+              <Trash2Icon />
+              Move to trash
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      )}
 
       <input
         ref={fileInputRef}
@@ -553,10 +716,10 @@ export function EntryContextMenu({
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>
-              Delete {isFolder ? "folder" : ""} “{name}”?
+              Move {entryKind} “{name}” to trash?
             </AlertDialogTitle>
             <AlertDialogDescription>
-              This permanently removes{" "}
+              This moves{" "}
               {isFolder ? (
                 <>
                   the folder and <strong>everything inside it</strong>
@@ -564,7 +727,7 @@ export function EntryContextMenu({
               ) : (
                 "this file"
               )}{" "}
-              from the server. This cannot be undone.
+              to Sshelf’s hidden trash. You can undo this action afterward.
             </AlertDialogDescription>
           </AlertDialogHeader>
           {deleteError && (
@@ -580,7 +743,7 @@ export function EntryContextMenu({
               disabled={deleting}
             >
               {deleting && <Spinner data-icon="inline-start" />}
-              {deleting ? "Deleting…" : "Delete"}
+              {deleting ? "Moving…" : "Move to trash"}
             </Button>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -598,13 +761,14 @@ export function EntryContextMenu({
             <AlertDialogHeader>
               <AlertDialogTitle>Rename “{name}”</AlertDialogTitle>
               <AlertDialogDescription>
-                Enter a new file name. The file stays in the same folder.
+                Enter a new {entryKind} name. The {entryKind} stays in the same
+                folder.
               </AlertDialogDescription>
             </AlertDialogHeader>
             <Input
               value={nextName}
               onChange={(event) => setNextName(event.target.value)}
-              aria-label="New file name"
+              aria-label={`New ${entryKind} name`}
               disabled={renaming}
               autoFocus
             />
@@ -734,29 +898,20 @@ export function EntryContextMenu({
             }}
           >
             <AlertDialogHeader>
-              <AlertDialogTitle>New markdown file in “{name}”</AlertDialogTitle>
+              <AlertDialogTitle>New file in “{name}”</AlertDialogTitle>
               <AlertDialogDescription>
-                Enter a name for the new file. The “.md” extension is added
-                automatically.
+                Enter the complete file name, including an extension when
+                needed.
               </AlertDialogDescription>
             </AlertDialogHeader>
-            <div className="flex items-center gap-2">
-              <Input
-                value={newFileName}
-                onChange={(event) =>
-                  // Strip any ".md" the user types — the suffix is fixed.
-                  setNewFileName(event.target.value.replace(/\.md$/i, ""))
-                }
-                aria-label="New markdown file name"
-                placeholder="file name"
-                disabled={creatingFile}
-                autoFocus
-                className="flex-1"
-              />
-              <span className="font-mono text-sm text-muted-foreground">
-                .md
-              </span>
-            </div>
+            <Input
+              value={newFileName}
+              onChange={(event) => setNewFileName(event.target.value)}
+              aria-label="New file name"
+              placeholder="notes.md"
+              disabled={creatingFile}
+              autoFocus
+            />
             {createFileError && (
               <p className="font-mono text-xs break-all text-destructive">
                 {createFileError}

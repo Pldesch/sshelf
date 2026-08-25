@@ -10,6 +10,7 @@ import { TanStackRouterDevtoolsPanel } from "@tanstack/react-router-devtools"
 import { TanStackDevtools } from "@tanstack/react-devtools"
 
 import { TooltipProvider } from "@/components/ui/tooltip"
+import { ToastProvider } from "@/components/ui/toast"
 import { AppSidebar } from "@/components/app-sidebar"
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar"
 import { useRemoteFileEvents } from "@/lib/use-file-events"
@@ -102,7 +103,9 @@ function RootDocument({ children }: { children: React.ReactNode }) {
         <HeadContent />
       </head>
       <body>
-        <TooltipProvider>{children}</TooltipProvider>
+        <TooltipProvider>
+          <ToastProvider>{children}</ToastProvider>
+        </TooltipProvider>
         {/* The @tanstack/devtools-vite plugin strips this element (and its
             imports) from production builds, so devtools render in dev only. */}
         <TanStackDevtools

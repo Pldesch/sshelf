@@ -1,4 +1,5 @@
 import { createServerFn } from "@tanstack/react-start"
+import { randomUUID } from "node:crypto"
 import {
   REMOTE_ROOT,
   SshError,
@@ -17,7 +18,10 @@ import {
   setSshHost,
   shellQuote,
   writeRemoteFile,
+  writeRemoteFileIfRevision,
 } from "@/server/ssh"
+import { contentRevision } from "@/server/content-revision"
+import { isManagedTrashPath, MANAGED_TRASH_DIRECTORY } from "@/lib/trash"
 import { fileKindOf, nameOf, parentOf } from "@/lib/file-kinds"
 import {
   MAX_HTML_COMPANION_BYTES,
@@ -43,6 +47,8 @@ export interface FileView {
   modifiedAt: number
   /** Present for editable or text-like files small enough to render inline. */
   content: string | null
+  /** Hash of the exact editable content returned to the client. */
+  revision: string | null
   stale: boolean
 }
 
@@ -151,12 +157,49 @@ export const browsePath = createServerFn()
       size: entry.size,
       modifiedAt: entry.modifiedAt,
       content,
+      revision: content === null ? null : contentRevision(content),
       stale,
     }
   })
 
+/** Force a fresh editable-file read after a save conflict. This deliberately
+ * bypasses both the SSH content cache and the browser query cache. */
+export const reloadFile = createServerFn()
+  .inputValidator((data: { path: string }) => data)
+  .handler(async ({ data }): Promise<FileView> => {
+    if (!data.path || fileKindOf(data.path) !== "markdown") {
+      throw new Error("Only markdown files can be reloaded here")
+    }
+    invalidateRemotePath(data.path)
+    const found = await findEntry(data.path)
+    if (!found.value || found.value.type !== "file") {
+      throw new SshError(`"${data.path}" was not found on the server`)
+    }
+    if (found.value.size > MAX_TEXT_BYTES) {
+      throw new Error("This file is too large to edit")
+    }
+    const file = await readRemoteFile(data.path)
+    const content = file.value.toString("utf-8")
+    return {
+      kind: "file",
+      path: data.path,
+      size: found.value.size,
+      modifiedAt: found.value.modifiedAt,
+      content,
+      revision: contentRevision(content),
+      stale: file.stale || found.stale,
+    }
+  })
+
 export const saveFile = createServerFn({ method: "POST" })
-  .inputValidator((data: { path: string; content: string }) => data)
+  .inputValidator(
+    (data: {
+      path: string
+      content: string
+      expectedRevision?: string
+      force?: boolean
+    }) => data
+  )
   .handler(async ({ data }) => {
     if (!data.path) throw new Error("No file selected")
     // Keep the write capability narrow so a stray request cannot overwrite a
@@ -175,8 +218,20 @@ export const saveFile = createServerFn({ method: "POST" })
     if (found.value.type !== "file") {
       throw new Error("Only files can be edited")
     }
-    await writeRemoteFile(data.path, Buffer.from(data.content, "utf-8"))
-    return { ok: true }
+    const content = Buffer.from(data.content, "utf-8")
+    if (data.force) {
+      await writeRemoteFile(data.path, content)
+    } else {
+      if (!data.expectedRevision)
+        throw new Error("No content revision provided")
+      await writeRemoteFileIfRevision(data.path, content, data.expectedRevision)
+    }
+    return {
+      ok: true,
+      revision: contentRevision(content),
+      size: content.byteLength,
+      modifiedAt: Date.now(),
+    }
   })
 
 function validateHtmlCompanionContent(content: string): void {
@@ -237,11 +292,43 @@ export const deletePath = createServerFn({ method: "POST" })
       throw new SshError(`"${data.path}" was not found on the server`)
     }
     const absolute = resolveRemotePath(data.path)
-    const flags = found.value.type === "dir" ? "-rf" : "-f"
-    await runRemote(`rm ${flags} ${shellQuote(absolute)}`)
+    const trashDirectory = resolveRemotePath(MANAGED_TRASH_DIRECTORY)
+    const trashPath = `${MANAGED_TRASH_DIRECTORY}/${Date.now()}-${randomUUID()}-${nameOf(data.path)}`
+    const trashAbsolute = resolveRemotePath(trashPath)
+    await runRemote(
+      `mkdir -p ${shellQuote(trashDirectory)} && ` +
+        `mv -- ${shellQuote(absolute)} ${shellQuote(trashAbsolute)}`
+    )
     invalidateRemotePath(data.path)
     markRemoteMutation()
-    return { ok: true }
+    return { ok: true, originalPath: data.path, trashPath }
+  })
+
+export const restorePath = createServerFn({ method: "POST" })
+  .inputValidator((data: { originalPath: string; trashPath: string }) => data)
+  .handler(async ({ data }) => {
+    if (
+      !data.originalPath ||
+      isManagedTrashPath(data.originalPath) ||
+      !isManagedTrashPath(data.trashPath)
+    ) {
+      throw new Error("Invalid trash item")
+    }
+    const original = resolveRemotePath(data.originalPath)
+    const trashed = resolveRemotePath(data.trashPath)
+    const parentPath = parentOf(data.originalPath)
+    const parent = resolveRemotePath(parentPath)
+    await runRemote(
+      `if [ ! -e ${shellQuote(trashed)} ]; then ` +
+        `printf '%s\\n' 'The trash item no longer exists' >&2; exit 1; fi; ` +
+        `if [ -e ${shellQuote(original)} ]; then ` +
+        `printf '%s\\n' 'An item now exists at the original location' >&2; exit 1; fi; ` +
+        `mkdir -p ${shellQuote(parent)} && ` +
+        `mv -- ${shellQuote(trashed)} ${shellQuote(original)}`
+    )
+    invalidateRemotePath(data.originalPath, data.trashPath)
+    markRemoteMutation()
+    return { ok: true, path: data.originalPath }
   })
 
 function validateEntryName(name: string): string {
@@ -279,12 +366,7 @@ export const createFolder = createServerFn({ method: "POST" })
 export const createFile = createServerFn({ method: "POST" })
   .inputValidator((data: { parentPath: string; name: string }) => data)
   .handler(async ({ data }) => {
-    let name = validateEntryName(data.name)
-    // This action only creates markdown files — the extension is forced so
-    // the new file always opens in the markdown editor.
-    if (!name.toLowerCase().endsWith(".md")) {
-      name = `${name}.md`
-    }
+    const name = validateEntryName(data.name)
     if (data.parentPath) {
       const parent = await findEntry(data.parentPath)
       if (!parent.value || parent.value.type !== "dir") {
@@ -315,7 +397,7 @@ async function moveWithoutOverwrite(fromPath: string, toPath: string) {
   markRemoteMutation()
 }
 
-export const renameFile = createServerFn({ method: "POST" })
+export const renameEntry = createServerFn({ method: "POST" })
   .inputValidator((data: { path: string; name: string }) => data)
   .handler(async ({ data }) => {
     const nextName = validateEntryName(data.name)
@@ -323,10 +405,6 @@ export const renameFile = createServerFn({ method: "POST" })
     if (!found.value) {
       throw new SshError(`"${data.path}" was not found on the server`)
     }
-    if (found.value.type !== "file") {
-      throw new Error("Only files can be renamed from this menu")
-    }
-
     const parent = parentOf(data.path)
     const nextPath = parent ? `${parent}/${nextName}` : nextName
     if (nextPath === data.path) return { ok: true, path: nextPath }

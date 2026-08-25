@@ -13,6 +13,7 @@ import {
   readRowBody,
 } from "@/server/database"
 import { getCyrusOverview } from "@/server/cyrus"
+import type { DatabaseTableQuery } from "@/lib/database-query"
 
 /**
  * Central definition of every server read as a React Query option object.
@@ -81,10 +82,17 @@ export function dbTablesQueryOptions(path: string) {
   })
 }
 
-export function dbTableQueryOptions(path: string, table: string, offset = 0) {
+export function dbTableQueryOptions(
+  path: string,
+  table: string,
+  offset = 0,
+  query: DatabaseTableQuery = {}
+) {
   return queryOptions({
-    queryKey: ["db", "table", path, table, offset] as const,
-    queryFn: () => readDatabaseTable({ data: { path, table, offset } }),
+    queryKey: ["db", "table", path, table, offset, query] as const,
+    queryFn: () => readDatabaseTable({ data: { path, table, offset, query } }),
+    placeholderData: (previous) =>
+      previous?.table === table ? previous : undefined,
   })
 }
 

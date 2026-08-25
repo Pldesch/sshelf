@@ -1,7 +1,10 @@
 import { execFile, spawn } from "node:child_process"
+import { randomUUID } from "node:crypto"
 import { readFileSync, writeFileSync } from "node:fs"
 import { homedir } from "node:os"
 import { join } from "node:path"
+import { isContentRevision } from "@/server/content-revision"
+import { EDIT_CONFLICT_MARKER } from "@/lib/edit-conflict"
 
 // The remote directory the explorer is rooted at. Override with
 // SSHELF_REMOTE_ROOT (should be an absolute path); defaults to /home/ubuntu.
@@ -321,6 +324,31 @@ function execRemoteStdin(command: string, input: Buffer): Promise<void> {
   })
 }
 
+// Serialize writes to the same remote path within this app process. In
+// particular, two editor tabs with the same expected revision must not both
+// pass their comparison before either replacement lands.
+const remoteFileWriteChains = new Map<string, Promise<unknown>>()
+
+function withRemoteFileWrite<T>(
+  relativePath: string,
+  operation: () => Promise<T>
+): Promise<T> {
+  const key = `${getCurrentHost() ?? ""}:${relativePath}`
+  const previous = remoteFileWriteChains.get(key) ?? Promise.resolve()
+  const run = previous.then(operation, operation)
+  const settled = run.then(
+    () => undefined,
+    () => undefined
+  )
+  remoteFileWriteChains.set(key, settled)
+  void settled.finally(() => {
+    if (remoteFileWriteChains.get(key) === settled) {
+      remoteFileWriteChains.delete(key)
+    }
+  })
+  return run
+}
+
 /** Create a directory (and any missing parents) on the remote. */
 export async function makeRemoteDir(relativePath: string): Promise<void> {
   const absolute = resolveRemotePath(relativePath)
@@ -337,9 +365,54 @@ export async function writeRemoteFile(
   const absolute = resolveRemotePath(relativePath)
   const slash = absolute.lastIndexOf("/")
   const parent = slash > 0 ? absolute.slice(0, slash) : REMOTE_ROOT
-  await execRemoteStdin(
-    `mkdir -p ${shellQuote(parent)} && cat > ${shellQuote(absolute)}`,
-    content
+  const temporary = `${parent}/.sshelf-${randomUUID()}.tmp`
+  const cleanup = `rm -f -- ${shellQuote(temporary)}`
+  await withRemoteFileWrite(relativePath, () =>
+    execRemoteStdin(
+      `mkdir -p ${shellQuote(parent)} && ` +
+        `trap ${shellQuote(cleanup)} EXIT && ` +
+        `cat > ${shellQuote(temporary)} && ` +
+        `if [ -d ${shellQuote(absolute)} ]; then ` +
+        `printf '%s\\n' 'A folder exists at that path' >&2; exit 1; fi && ` +
+        `(if [ -f ${shellQuote(absolute)} ]; then ` +
+        `chmod --reference=${shellQuote(absolute)} ${shellQuote(temporary)} 2>/dev/null || true; fi) && ` +
+        `mv -- ${shellQuote(temporary)} ${shellQuote(absolute)} && trap - EXIT`,
+      content
+    )
+  )
+  invalidateRemotePath(relativePath)
+  markRemoteMutation()
+}
+
+/** Atomically replace a file only when it still has the revision the editor
+ * loaded. The content is streamed to a sibling temporary file first so a
+ * connection failure cannot truncate the live document. */
+export async function writeRemoteFileIfRevision(
+  relativePath: string,
+  content: Buffer,
+  expectedRevision: string
+): Promise<void> {
+  if (!isContentRevision(expectedRevision)) {
+    throw new SshError("Invalid content revision")
+  }
+  const absolute = resolveRemotePath(relativePath)
+  const slash = absolute.lastIndexOf("/")
+  const parent = slash > 0 ? absolute.slice(0, slash) : REMOTE_ROOT
+  const temporary = `${parent}/.sshelf-${randomUUID()}.tmp`
+  const cleanup = `rm -f -- ${shellQuote(temporary)}`
+  const command =
+    `mkdir -p ${shellQuote(parent)} && ` +
+    `trap ${shellQuote(cleanup)} EXIT && ` +
+    `cat > ${shellQuote(temporary)} && ` +
+    `if [ ! -f ${shellQuote(absolute)} ]; then ` +
+    `printf '%s\\n' ${shellQuote(EDIT_CONFLICT_MARKER)} >&2; exit 42; fi && ` +
+    `actual=$(sha256sum -- ${shellQuote(absolute)} | awk '{print $1}') && ` +
+    `if [ "$actual" != ${shellQuote(expectedRevision)} ]; then ` +
+    `printf '%s\\n' ${shellQuote(EDIT_CONFLICT_MARKER)} >&2; exit 42; fi && ` +
+    `(chmod --reference=${shellQuote(absolute)} ${shellQuote(temporary)} 2>/dev/null || true) && ` +
+    `mv -- ${shellQuote(temporary)} ${shellQuote(absolute)} && trap - EXIT`
+  await withRemoteFileWrite(relativePath, () =>
+    execRemoteStdin(command, content)
   )
   invalidateRemotePath(relativePath)
   markRemoteMutation()

@@ -9,6 +9,8 @@ import {
   shellQuote,
   withCache,
 } from "@/server/ssh"
+import { buildDatabaseQueryClauses } from "@/lib/database-query"
+import type { DatabaseTableQuery } from "@/lib/database-query"
 
 /** Cap rows read in one page so a huge table can't flood the client. */
 const PAGE_SIZE = 200
@@ -251,7 +253,12 @@ export const listDatabaseTables = createServerFn()
 
 export const readDatabaseTable = createServerFn()
   .inputValidator(
-    (data: { path: string; table?: string; offset?: number }) => data
+    (data: {
+      path: string
+      table?: string
+      offset?: number
+      query?: DatabaseTableQuery
+    }) => data
   )
   .handler(async ({ data }): Promise<DbTablePage> => {
     const file = resolveRemotePath(data.path)
@@ -284,10 +291,14 @@ export const readDatabaseTable = createServerFn()
         options: m?.options ?? [],
       }
     })
+    const clauses = buildDatabaseQueryClauses(
+      columns.map((column) => column.name),
+      data.query ?? {}
+    )
 
     const countResult = await queryDb(
       file,
-      `SELECT COUNT(*) AS n FROM ${ident}`
+      `SELECT COUNT(*) AS n FROM ${ident}${clauses.where}`
     )
     const totalRows = Number(countResult[0]?.n ?? 0)
     const offset = Math.max(0, Math.floor(data.offset ?? 0))
@@ -301,13 +312,15 @@ export const readDatabaseTable = createServerFn()
       rawRows = await queryDb(
         file,
         `SELECT rowid AS ${ROWID_ALIAS}, * FROM ${ident} ` +
+          `${clauses.where}${clauses.orderBy} ` +
           `LIMIT ${PAGE_SIZE} OFFSET ${offset}`
       )
     } catch {
       editable = false
       rawRows = await queryDb(
         file,
-        `SELECT * FROM ${ident} LIMIT ${PAGE_SIZE} OFFSET ${offset}`
+        `SELECT * FROM ${ident}${clauses.where}${clauses.orderBy} ` +
+          `LIMIT ${PAGE_SIZE} OFFSET ${offset}`
       )
     }
 

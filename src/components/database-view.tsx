@@ -54,6 +54,12 @@ import type {
   DbTablePage,
   DbValue,
 } from "@/server/database"
+import type {
+  DatabaseTableQuery,
+  DbFilter as Filter,
+  DbFilterOp as FilterOp,
+  DbSortState as SortState,
+} from "@/lib/database-query"
 
 const MarkdownEditor = React.lazy(() => import("@/components/markdown-editor"))
 
@@ -112,18 +118,6 @@ function displayText(value: DbValue): { text: string; muted: boolean } {
   return { text, muted: text === "" }
 }
 
-// ── search / filter / sort (all client-side over the loaded rows) ──────────
-type SortState = { column: string; dir: "asc" | "desc" } | null
-
-type FilterOp = "contains" | "is" | "is_not" | "is_empty" | "is_not_empty"
-
-interface Filter {
-  id: number
-  column: string
-  op: FilterOp
-  value: string
-}
-
 const FILTER_OPS: Array<{ op: FilterOp; label: string; needsValue: boolean }> =
   [
     { op: "contains", label: "contains", needsValue: true },
@@ -139,69 +133,6 @@ interface StoredView {
   groupBy: string | null
   sort: SortState
   filters: Array<Filter>
-}
-
-function isEmpty(value: DbValue): boolean {
-  return value === null || value === ""
-}
-
-function matchFilter(value: DbValue, filter: Filter): boolean {
-  const text = isEmpty(value) ? "" : String(value)
-  const needle = filter.value.toLowerCase()
-  switch (filter.op) {
-    case "contains":
-      return text.toLowerCase().includes(needle)
-    case "is":
-      return text === filter.value
-    case "is_not":
-      return text !== filter.value
-    case "is_empty":
-      return isEmpty(value)
-    case "is_not_empty":
-      return !isEmpty(value)
-  }
-}
-
-function compareCells(a: DbValue, b: DbValue): number {
-  const ae = isEmpty(a)
-  const be = isEmpty(b)
-  if (ae && be) return 0
-  if (ae) return 1 // empties sort last
-  if (be) return -1
-  const na = Number(a)
-  const nb = Number(b)
-  if (!Number.isNaN(na) && !Number.isNaN(nb)) return na - nb
-  return String(a).localeCompare(String(b))
-}
-
-/** Apply filters, then full-text search, then sort — over already-loaded rows. */
-function applyView(
-  rows: Array<DbRow>,
-  columns: Array<DbColumn>,
-  view: { search: string; filters: Array<Filter>; sort: SortState }
-): Array<DbRow> {
-  let result = rows
-  for (const filter of view.filters) {
-    result = result.filter((r) => matchFilter(r.cells[filter.column], filter))
-  }
-  const q = view.search.trim().toLowerCase()
-  if (q) {
-    result = result.filter((r) =>
-      columns.some((c) =>
-        String(r.cells[c.name] ?? "")
-          .toLowerCase()
-          .includes(q)
-      )
-    )
-  }
-  if (view.sort) {
-    const { column, dir } = view.sort
-    const factor = dir === "desc" ? -1 : 1
-    result = [...result].sort(
-      (a, b) => compareCells(a.cells[column], b.cells[column]) * factor
-    )
-  }
-  return result
 }
 
 function Chip({ name, color }: { name: string; color: string }) {
@@ -222,6 +153,7 @@ export default function DatabaseView({ path }: { path: string }) {
   const [busy, setBusy] = React.useState(false)
   const [openRowId, setOpenRowId] = React.useState<number | null>(null)
   const [search, setSearch] = React.useState("")
+  const [debouncedSearch, setDebouncedSearch] = React.useState("")
   const [searchExpanded, setSearchExpanded] = React.useState(false)
   const [sort, setSort] = React.useState<SortState>(null)
   const [filters, setFilters] = React.useState<Array<Filter>>([])
@@ -234,8 +166,12 @@ export default function DatabaseView({ path }: { path: string }) {
   // ── server reads (React Query) ────────────────────────────────────────────
   const tablesQuery = useQuery(dbTablesQueryOptions(path))
   const tables = tablesQuery.data ?? null
+  const tableRequest = React.useMemo<DatabaseTableQuery>(
+    () => ({ search: debouncedSearch, filters, sort }),
+    [debouncedSearch, filters, sort]
+  )
   const tableQuery = useQuery({
-    ...dbTableQueryOptions(path, active ?? "", offset),
+    ...dbTableQueryOptions(path, active ?? "", offset, tableRequest),
     enabled: !!active,
   })
   const page = tableQuery.data ?? null
@@ -263,11 +199,11 @@ export default function DatabaseView({ path }: { path: string }) {
     (fn: (p: DbTablePage) => DbTablePage) => {
       if (!active) return
       queryClient.setQueryData<DbTablePage>(
-        dbTableQueryOptions(path, active, offset).queryKey,
+        dbTableQueryOptions(path, active, offset, tableRequest).queryKey,
         (p) => (p ? fn(p) : p)
       )
     },
-    [queryClient, path, active, offset]
+    [queryClient, path, active, offset, tableRequest]
   )
 
   // Keep `active` in sync with the loaded table list: pick the first table when
@@ -286,6 +222,15 @@ export default function DatabaseView({ path }: { path: string }) {
   React.useEffect(() => {
     setOffset(0)
   }, [path, active])
+
+  React.useEffect(() => {
+    const timer = setTimeout(() => setDebouncedSearch(search), 250)
+    return () => clearTimeout(timer)
+  }, [search])
+
+  React.useEffect(() => {
+    setOffset(0)
+  }, [debouncedSearch, filters, sort])
 
   React.useEffect(() => {
     if (!page || page.totalRows === 0 || offset < page.totalRows) return
@@ -392,20 +337,17 @@ export default function DatabaseView({ path }: { path: string }) {
     }
   }, [groupableColumns, groupBy])
 
-  const displayRows = React.useMemo(
-    () =>
-      page ? applyView(page.rows, page.columns, { search, filters, sort }) : [],
-    [page, search, filters, sort]
-  )
+  const displayRows = page?.rows ?? []
 
   // ── mutations (React Query) ───────────────────────────────────────────────
   // Invalidate just the active table's page after a write touches its rows.
   const invalidateTable = React.useCallback(() => {
     if (!active) return
     void queryClient.invalidateQueries({
-      queryKey: dbTableQueryOptions(path, active, offset).queryKey,
+      queryKey: dbTableQueryOptions(path, active, offset, tableRequest)
+        .queryKey,
     })
-  }, [queryClient, path, active, offset])
+  }, [queryClient, path, active, offset, tableRequest])
   // Column add/drop can change the schema *and* the table set, so refresh both.
   const invalidateTableAndTables = React.useCallback(() => {
     invalidateTable()
