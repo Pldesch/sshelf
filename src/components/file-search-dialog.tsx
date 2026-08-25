@@ -15,10 +15,10 @@ import type { SearchResult } from "@/server/ssh"
 
 // Wait for typing to settle before hitting the server — every keystroke would
 // otherwise fire a fresh `find | grep` over SSH.
-const DEBOUNCE_MS = 220
+const DEBOUNCE_MS = 350
 // One- and two-letter queries match almost everything; the grep across the
 // whole tree only earns its keep once the query is specific enough.
-const MIN_QUERY_LENGTH = 2
+const MIN_QUERY_LENGTH = 3
 
 /**
  * Quick-open command palette: ⌘P / Ctrl+P opens it, typing streams live
@@ -48,7 +48,11 @@ export function FileSearchDialog() {
   }, [trimmed])
 
   const enabled = open && debounced.length >= MIN_QUERY_LENGTH
-  const search = useQuery({ ...searchQueryOptions(debounced), enabled })
+  const search = useQuery({
+    ...searchQueryOptions(debounced),
+    enabled,
+    placeholderData: (previous) => previous,
+  })
   const results: Array<SearchResult> = enabled ? (search.data ?? []) : []
   // Spinner while waiting for the debounce to catch up or for the fetch itself.
   const loading =

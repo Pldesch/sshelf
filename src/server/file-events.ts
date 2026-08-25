@@ -1,6 +1,7 @@
 import {
   REMOTE_ROOT,
   clearRemoteCache,
+  consumeKnownRemoteMutation,
   getCurrentHost,
   runRemote,
   shellQuote,
@@ -50,6 +51,7 @@ async function pollRemoteFiles() {
     const previous = fingerprintsByHost.get(next.host)
     fingerprintsByHost.set(next.host, next.fingerprint)
     if (previous && previous !== next.fingerprint) {
+      if (consumeKnownRemoteMutation(next.host)) return
       clearRemoteCache()
       broadcast("files-changed", next)
     }

@@ -2,12 +2,13 @@ import { createServerFn } from "@tanstack/react-start"
 import {
   REMOTE_ROOT,
   SshError,
-  clearRemoteCache,
   fetchTree,
   findEntry,
   getCurrentHost,
+  invalidateRemotePath,
   listRemoteDir,
   listSshConfigHosts,
+  markRemoteMutation,
   persistSshHost,
   readRemoteFile,
   resolveRemotePath,
@@ -15,7 +16,6 @@ import {
   searchRemote,
   setSshHost,
   shellQuote,
-  sortEntries,
   writeRemoteFile,
 } from "@/server/ssh"
 import { fileKindOf, nameOf, parentOf } from "@/lib/file-kinds"
@@ -58,9 +58,9 @@ export interface TreeResult {
 
 export const getTree = createServerFn().handler(
   async (): Promise<TreeResult> => {
-    const tree = await fetchTree()
+    const tree = await listRemoteDir("")
     return {
-      entries: sortEntries([...tree.value]),
+      entries: tree.value,
       stale: tree.stale,
       host: getCurrentHost(),
       root: REMOTE_ROOT,
@@ -232,8 +232,8 @@ export const deletePath = createServerFn({ method: "POST" })
     const absolute = resolveRemotePath(data.path)
     const flags = found.value.type === "dir" ? "-rf" : "-f"
     await runRemote(`rm ${flags} ${shellQuote(absolute)}`)
-    // Listings and contents are now wrong — refetch on next request.
-    clearRemoteCache()
+    invalidateRemotePath(data.path)
+    markRemoteMutation()
     return { ok: true }
   })
 
@@ -264,7 +264,8 @@ export const createFolder = createServerFn({ method: "POST" })
         `printf '%s\\n' 'An item with that name already exists' >&2; exit 1; ` +
         `fi; mkdir ${shellQuote(absolute)}`
     )
-    clearRemoteCache()
+    invalidateRemotePath(nextPath)
+    markRemoteMutation()
     return { ok: true, path: nextPath }
   })
 
@@ -290,7 +291,8 @@ export const createFile = createServerFn({ method: "POST" })
         `printf '%s\\n' 'An item with that name already exists' >&2; exit 1; ` +
         `fi; : > ${shellQuote(absolute)}`
     )
-    clearRemoteCache()
+    invalidateRemotePath(nextPath)
+    markRemoteMutation()
     return { ok: true, path: nextPath }
   })
 
@@ -302,7 +304,8 @@ async function moveWithoutOverwrite(fromPath: string, toPath: string) {
       `printf '%s\\n' 'An item with that name already exists' >&2; exit 1; ` +
       `fi; mv ${shellQuote(fromAbsolute)} ${shellQuote(toAbsolute)}`
   )
-  clearRemoteCache()
+  invalidateRemotePath(toPath, fromPath)
+  markRemoteMutation()
 }
 
 export const renameFile = createServerFn({ method: "POST" })
@@ -388,3 +391,13 @@ export const searchFiles = createServerFn()
   .handler(async ({ data }): Promise<Array<SearchResult>> => {
     return searchRemote(data.query)
   })
+
+/** Load the complete folder list only when the move dialog needs it. The
+ * sidebar itself is lazy and never pays for this global scan. */
+export const listDirectories = createServerFn().handler(async () => {
+  const tree = await fetchTree()
+  return tree.value
+    .filter((entry) => entry.type === "dir")
+    .map((entry) => entry.path)
+    .sort((a, b) => a.localeCompare(b))
+})

@@ -34,8 +34,10 @@ export function getCurrentHost(): string | null {
 /** Switch hosts in memory — drops all caches and the circuit breaker. */
 export function setSshHost(host: string | null) {
   sshHost = host
+  globalCacheGeneration++
   cache.clear()
   inFlight.clear()
+  knownMutationHosts.clear()
   downUntil = 0
 }
 
@@ -212,6 +214,70 @@ export async function runRemote(command: string): Promise<string> {
   return (await runRemoteRaw(command)).toString("utf-8")
 }
 
+/** Stream a remote file through the multiplexed SSH connection. Optional byte
+ * bounds are inclusive and power HTTP Range responses for large PDFs/media. */
+export function streamRemoteFile(
+  relativePath: string,
+  range?: { start: number; end: number },
+  signal?: AbortSignal
+): ReadableStream<Uint8Array> {
+  const absolute = resolveRemotePath(relativePath)
+  const command = range
+    ? `dd if=${shellQuote(absolute)} iflag=skip_bytes,count_bytes ` +
+      `skip=${range.start} count=${range.end - range.start + 1} status=none`
+    : `cat ${shellQuote(absolute)}`
+  let child: ReturnType<typeof spawn> | null = null
+  let closed = false
+
+  return new ReadableStream<Uint8Array>({
+    start(controller) {
+      if (signal?.aborted) {
+        controller.close()
+        return
+      }
+      const process = spawn("ssh", [...SSH_BASE_ARGS, requireHost(), command], {
+        stdio: ["ignore", "pipe", "pipe"],
+      })
+      child = process
+      const stderr: Array<Buffer> = []
+      const abort = () => child?.kill("SIGKILL")
+      signal?.addEventListener("abort", abort, { once: true })
+      process.stderr.on("data", (chunk: Buffer) => stderr.push(chunk))
+      process.stdout.on("data", (chunk: Buffer) => {
+        if (!closed) controller.enqueue(new Uint8Array(chunk))
+      })
+      process.on("error", (error) => {
+        if (closed) return
+        closed = true
+        signal?.removeEventListener("abort", abort)
+        controller.error(new SshError(error.message, true))
+      })
+      process.on("close", (code) => {
+        if (closed) return
+        closed = true
+        signal?.removeEventListener("abort", abort)
+        if (signal?.aborted) {
+          controller.close()
+        } else if (code === 0) {
+          controller.close()
+        } else {
+          const detail = Buffer.concat(stderr).toString("utf-8").trim()
+          controller.error(
+            new SshError(
+              detail || "Could not read the remote file",
+              code === 255
+            )
+          )
+        }
+      })
+    },
+    cancel() {
+      closed = true
+      child?.kill("SIGKILL")
+    },
+  })
+}
+
 /**
  * Run a remote command, streaming `input` to its stdin. Used to push file
  * contents to the server (`cat > file`) without embedding bytes in argv.
@@ -259,7 +325,8 @@ function execRemoteStdin(command: string, input: Buffer): Promise<void> {
 export async function makeRemoteDir(relativePath: string): Promise<void> {
   const absolute = resolveRemotePath(relativePath)
   await runRemote(`mkdir -p ${shellQuote(absolute)}`)
-  clearRemoteCache()
+  invalidateRemotePath(relativePath)
+  markRemoteMutation()
 }
 
 /** Write `content` to a remote file, creating missing parent directories. */
@@ -274,7 +341,8 @@ export async function writeRemoteFile(
     `mkdir -p ${shellQuote(parent)} && cat > ${shellQuote(absolute)}`,
     content
   )
-  clearRemoteCache()
+  invalidateRemotePath(relativePath)
+  markRemoteMutation()
 }
 
 /* ── In-memory cache: fresh within TTL, stale data survives as a
@@ -287,6 +355,9 @@ interface CacheSlot {
 
 const cache = new Map<string, CacheSlot>()
 const inFlight = new Map<string, Promise<unknown>>()
+const cacheGenerations = new Map<string, number>()
+let globalCacheGeneration = 0
+const knownMutationHosts = new Set<string>()
 
 export interface CachedResult<T> {
   value: T
@@ -307,24 +378,84 @@ export async function withCache<T>(
   if (pending) {
     return (await pending) as CachedResult<T>
   }
+  const keyGeneration = cacheGenerations.get(key) ?? 0
+  const startedAtGlobalGeneration = globalCacheGeneration
   const promise = (async () => {
     try {
       const value = await fetcher()
-      cache.set(key, { value, expiresAt: Date.now() + ttlMs })
+      if (
+        globalCacheGeneration === startedAtGlobalGeneration &&
+        (cacheGenerations.get(key) ?? 0) === keyGeneration
+      ) {
+        cache.set(key, { value, expiresAt: Date.now() + ttlMs })
+      }
       return { value, stale: false }
     } catch (error) {
       if (slot) return { value: slot.value as T, stale: true }
       throw error
     } finally {
-      inFlight.delete(key)
+      if (
+        globalCacheGeneration === startedAtGlobalGeneration &&
+        (cacheGenerations.get(key) ?? 0) === keyGeneration
+      ) {
+        inFlight.delete(key)
+      }
     }
   })()
   inFlight.set(key, promise)
   return await promise
 }
 
-/** Drop all cached listings/contents — used after mutations like delete. */
+export function invalidateRemoteCacheKey(key: string) {
+  cache.delete(key)
+  inFlight.delete(key)
+  cacheGenerations.set(key, (cacheGenerations.get(key) ?? 0) + 1)
+}
+
+/**
+ * Invalidate only the resources affected by a path mutation. A generation is
+ * bumped for every key so an older in-flight read can never repopulate stale
+ * data after the mutation completes.
+ */
+export function invalidateRemotePath(relativePath: string, oldPath?: string) {
+  const paths = [relativePath, oldPath].filter(
+    (value): value is string => typeof value === "string"
+  )
+  invalidateRemoteCacheKey("tree:all")
+  for (const path of paths) {
+    invalidateRemoteCacheKey(`entry:${path}`)
+    invalidateRemoteCacheKey(`file:${path}`)
+    const slash = path.lastIndexOf("/")
+    const parent = slash === -1 ? "" : path.slice(0, slash)
+    invalidateRemoteCacheKey(`dir:${parent}`)
+    // Folder moves/deletes can leave cached descendants under the old prefix.
+    for (const key of [...cache.keys(), ...inFlight.keys()]) {
+      if (
+        key.startsWith(`dir:${path}/`) ||
+        key.startsWith(`entry:${path}/`) ||
+        key.startsWith(`file:${path}/`)
+      ) {
+        invalidateRemoteCacheKey(key)
+      }
+    }
+  }
+}
+
+/** Mark a write performed by this process so the polling fallback does not
+ * echo it back to the client as an out-of-band change a few seconds later. */
+export function markRemoteMutation() {
+  if (sshHost) knownMutationHosts.add(sshHost)
+}
+
+export function consumeKnownRemoteMutation(host: string): boolean {
+  const known = knownMutationHosts.has(host)
+  knownMutationHosts.delete(host)
+  return known
+}
+
+/** Drop all cached listings/contents after an unknown out-of-band change. */
 export function clearRemoteCache() {
+  globalCacheGeneration++
   cache.clear()
   inFlight.clear()
 }
@@ -355,67 +486,79 @@ const FIND_PRUNE_EXPRESSION = PRUNED_DIRECTORY_NAMES.map(
   (name) => `-name ${shellQuote(name)}`
 ).join(" -o ")
 
-/**
- * Fetch the entire visible tree in ONE ssh round trip (the server holds
- * only a few hundred entries). Everything else is derived from this.
- */
+function parseFindEntries(output: string): Array<RemoteEntry> {
+  const entries: Array<RemoteEntry> = []
+  for (const line of output.split("\n")) {
+    if (!line) continue
+    const [type, size, mtime, ...pathParts] = line.split("\t")
+    const path = pathParts.join("\t")
+    if (!path || (type !== "d" && type !== "f")) continue
+    const slash = path.lastIndexOf("/")
+    entries.push({
+      name: slash === -1 ? path : path.slice(slash + 1),
+      path,
+      type: type === "d" ? "dir" : "file",
+      size: Number(size),
+      modifiedAt: Math.floor(Number(mtime) * 1000),
+    })
+  }
+  return entries
+}
+
+/** Fetch the complete visible tree only for global search and the move-folder
+ * picker. Normal browsing and the sidebar use lazy direct-directory reads. */
 export async function fetchTree(): Promise<CachedResult<Array<RemoteEntry>>> {
-  return withCache("tree", TREE_TTL_MS, async () => {
+  return withCache("tree:all", TREE_TTL_MS, async () => {
     const output = await runRemote(
       `find ${shellQuote(REMOTE_ROOT)} -mindepth 1 ` +
         `\\( -name '.*' ! \\( ${VISIBLE_DOT_DIRECTORY_TEST} \\) -o ${FIND_PRUNE_EXPRESSION} \\) -prune ` +
         `-o -printf '%y\\t%s\\t%T@\\t%P\\n'`
     )
-    const entries: Array<RemoteEntry> = []
-    for (const line of output.split("\n")) {
-      if (!line) continue
-      const [type, size, mtime, ...pathParts] = line.split("\t")
-      const path = pathParts.join("\t")
-      if (!path || (type !== "d" && type !== "f")) continue
-      const slash = path.lastIndexOf("/")
-      entries.push({
-        name: slash === -1 ? path : path.slice(slash + 1),
-        path,
-        type: type === "d" ? "dir" : "file",
-        size: Number(size),
-        modifiedAt: Math.floor(Number(mtime) * 1000),
-      })
-    }
-    return entries
+    return parseFindEntries(output)
   })
 }
+
+const entryCollator = new Intl.Collator(undefined, { sensitivity: "base" })
 
 export function sortEntries(entries: Array<RemoteEntry>): Array<RemoteEntry> {
   return entries.sort((a, b) => {
     if (a.type !== b.type) return a.type === "dir" ? -1 : 1
-    return a.name.localeCompare(b.name, undefined, { sensitivity: "base" })
+    return entryCollator.compare(a.name, b.name)
   })
 }
 
 export async function listRemoteDir(
   relativePath: string
 ): Promise<CachedResult<Array<RemoteEntry>>> {
-  resolveRemotePath(relativePath) // path safety check
-  const tree = await fetchTree()
-  const prefix = relativePath ? `${relativePath}/` : ""
-  const children = tree.value.filter(
-    (entry) =>
-      entry.path.startsWith(prefix) &&
-      !entry.path.slice(prefix.length).includes("/") &&
-      entry.path !== relativePath
-  )
-  return { value: sortEntries(children), stale: tree.stale }
+  const absolute = resolveRemotePath(relativePath)
+  return withCache(`dir:${relativePath}`, TREE_TTL_MS, async () => {
+    const output = await runRemote(
+      `find ${shellQuote(absolute)} -mindepth 1 -maxdepth 1 ` +
+        `\\( -name '.*' ! \\( ${VISIBLE_DOT_DIRECTORY_TEST} \\) -o ${FIND_PRUNE_EXPRESSION} \\) -prune ` +
+        `-o ! -type l \\( -type d -o -type f \\) -printf '%y\\t%s\\t%T@\\t%P\\n'`
+    )
+    const prefix = relativePath ? `${relativePath}/` : ""
+    const entries = parseFindEntries(output).map((entry) => ({
+      ...entry,
+      path: `${prefix}${entry.path}`,
+    }))
+    return sortEntries(entries)
+  })
 }
 
 export async function findEntry(
   relativePath: string
 ): Promise<CachedResult<RemoteEntry | null>> {
-  resolveRemotePath(relativePath)
-  const tree = await fetchTree()
-  return {
-    value: tree.value.find((entry) => entry.path === relativePath) ?? null,
-    stale: tree.stale,
-  }
+  const absolute = resolveRemotePath(relativePath)
+  return withCache(`entry:${relativePath}`, TREE_TTL_MS, async () => {
+    const output = await runRemote(
+      `if [ ! -e ${shellQuote(absolute)} ] || [ -L ${shellQuote(absolute)} ]; ` +
+        `then exit 0; fi; find ${shellQuote(absolute)} -maxdepth 0 ` +
+        `\\( -type d -o -type f \\) -printf '%y\\t%s\\t%T@\\t%f\\n'`
+    )
+    const parsed = parseFindEntries(output).at(0)
+    return parsed ? { ...parsed, name: parsed.path, path: relativePath } : null
+  })
 }
 
 export async function readRemoteFile(

@@ -1,6 +1,7 @@
 import Markdown from "react-markdown"
 import remarkGfm from "remark-gfm"
 import rehypeHighlight from "rehype-highlight"
+import { memo } from "react"
 import { Link } from "@tanstack/react-router"
 import { parentOf, rawFileUrl } from "@/lib/file-kinds"
 
@@ -45,13 +46,7 @@ function stripFrontmatter(content: string): string {
   return content.replace(/^---\r?\n[\s\S]*?\r?\n---[ \t]*\r?\n?/, "")
 }
 
-export default function MarkdownViewer({
-  path,
-  content,
-}: {
-  path: string
-  content: string
-}) {
+function MarkdownViewer({ path, content }: { path: string; content: string }) {
   const baseDir = parentOf(path)
   const body = stripFrontmatter(content)
   return (
@@ -109,3 +104,5 @@ export default function MarkdownViewer({
     </article>
   )
 }
+
+export default memo(MarkdownViewer)

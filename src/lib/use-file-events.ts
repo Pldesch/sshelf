@@ -1,11 +1,10 @@
 import * as React from "react"
-import { useRouter } from "@tanstack/react-router"
-import { refreshTree } from "@/lib/use-tree"
+import { useQueryClient } from "@tanstack/react-query"
 
 const REFRESH_DEBOUNCE_MS = 150
 
 export function useRemoteFileEvents() {
-  const router = useRouter()
+  const queryClient = useQueryClient()
 
   React.useEffect(() => {
     if (typeof EventSource === "undefined") return
@@ -16,8 +15,18 @@ export function useRemoteFileEvents() {
     function refreshExplorer() {
       if (refreshTimer) clearTimeout(refreshTimer)
       refreshTimer = setTimeout(() => {
-        refreshTree()
-        void router.invalidate()
+        // The server only emits this fallback event for an out-of-band change;
+        // writes made by this app are consumed server-side. Mark cached remote
+        // data stale, but refetch only queries currently visible (the open page
+        // and expanded sidebar folders). Route loaders and unrelated status
+        // queries stay untouched.
+        void queryClient.invalidateQueries({
+          predicate: (query) =>
+            ["tree", "browse", "search", "db"].includes(
+              String(query.queryKey[0])
+            ),
+          refetchType: "active",
+        })
       }, REFRESH_DEBOUNCE_MS)
     }
 
@@ -28,5 +37,5 @@ export function useRemoteFileEvents() {
       events.removeEventListener("files-changed", refreshExplorer)
       events.close()
     }
-  }, [router])
+  }, [queryClient])
 }

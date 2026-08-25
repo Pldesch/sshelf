@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Reworked the application shell and filesystem data flow so navigation keeps
+  the sidebar mounted, folders load lazily, and mutations refresh only affected
+  directories instead of invalidating the entire interface.
+- Added bounded database pagination and optimistic cache updates, serialized
+  Markdown autosaves, and streaming file responses with HTTP byte ranges.
+- Made prerelease tags publish as GitHub prereleases so beta builds can be
+  tested independently before merging into `main`.
+
 ## [0.6.1] - 2026-08-24
 
 ### Added
