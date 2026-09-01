@@ -45,6 +45,18 @@ describe("fileKindOf", () => {
     expect(fileKindOf("a.sqlite3")).toBe("database")
   })
 
+  it("detects Word documents", () => {
+    expect(fileKindOf("a.doc")).toBe("word")
+    expect(fileKindOf("a.docx")).toBe("word")
+    expect(fileKindOf("a.docm")).toBe("word")
+  })
+
+  it("detects Excel workbooks", () => {
+    expect(fileKindOf("a.xls")).toBe("spreadsheet")
+    expect(fileKindOf("a.xlsx")).toBe("spreadsheet")
+    expect(fileKindOf("a.xlsm")).toBe("spreadsheet")
+  })
+
   it("detects html", () => {
     expect(fileKindOf("a.html")).toBe("html")
     expect(fileKindOf("a.htm")).toBe("html")
@@ -73,6 +85,12 @@ describe("mimeTypeOf", () => {
   it("maps known extensions", () => {
     expect(mimeTypeOf("x.pdf")).toBe("application/pdf")
     expect(mimeTypeOf("x.png")).toBe("image/png")
+    expect(mimeTypeOf("x.docx")).toBe(
+      "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+    )
+    expect(mimeTypeOf("x.xlsx")).toBe(
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
   })
 
   it("falls back to octet-stream for unknown extensions", () => {

@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Added private, in-browser previews for Word and Excel files, with search,
+  zoom, and support for common document, workbook, macro, and template formats.
+
 ## [0.7.0] - 2026-08-25
 
 ### Changed

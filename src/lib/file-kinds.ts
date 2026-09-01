@@ -5,9 +5,23 @@ export type FileKind =
   | "html"
   | "text"
   | "database"
+  | "word"
+  | "spreadsheet"
   | "other"
 
 const DATABASE_EXTENSIONS = new Set(["db", "sqlite", "sqlite3"])
+
+const WORD_EXTENSIONS = new Set(["doc", "docx", "docm", "dot", "dotx"])
+
+const SPREADSHEET_EXTENSIONS = new Set([
+  "xls",
+  "xlsx",
+  "xlsm",
+  "xlsb",
+  "xlt",
+  "xltx",
+  "xltm",
+])
 
 const IMAGE_EXTENSIONS = new Set([
   "png",
@@ -50,6 +64,8 @@ export function fileKindOf(name: string): FileKind {
   if (ext === "md" || ext === "mdx" || ext === "markdown") return "markdown"
   if (ext === "pdf") return "pdf"
   if (DATABASE_EXTENSIONS.has(ext)) return "database"
+  if (WORD_EXTENSIONS.has(ext)) return "word"
+  if (SPREADSHEET_EXTENSIONS.has(ext)) return "spreadsheet"
   if (ext === "html" || ext === "htm") return "html"
   if (IMAGE_EXTENSIONS.has(ext)) return "image"
   if (TEXT_EXTENSIONS.has(ext)) return "text"
@@ -73,6 +89,18 @@ export function mimeTypeOf(name: string): string {
     txt: "text/plain; charset=utf-8",
     md: "text/markdown; charset=utf-8",
     json: "application/json; charset=utf-8",
+    doc: "application/msword",
+    docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    docm: "application/vnd.ms-word.document.macroEnabled.12",
+    dot: "application/msword",
+    dotx: "application/vnd.openxmlformats-officedocument.wordprocessingml.template",
+    xls: "application/vnd.ms-excel",
+    xlsx: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    xlsm: "application/vnd.ms-excel.sheet.macroEnabled.12",
+    xlsb: "application/vnd.ms-excel.sheet.binary.macroEnabled.12",
+    xlt: "application/vnd.ms-excel",
+    xltx: "application/vnd.openxmlformats-officedocument.spreadsheetml.template",
+    xltm: "application/vnd.ms-excel.template.macroEnabled.12",
   }
   return map[ext] ?? "application/octet-stream"
 }
