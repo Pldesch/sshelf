@@ -439,8 +439,43 @@ function FileView({ data }: { data: FileData }) {
 
 function SlideDeckCard({ path, content }: { path: string; content: string }) {
   const [mounted, setMounted] = React.useState(false)
+  const queryClient = useQueryClient()
 
   React.useEffect(() => setMounted(true), [])
+
+  const { mutateAsync: saveMutate } = useMutation({
+    mutationFn: (full: string) => saveFile({ data: { path, content: full } }),
+    onSuccess: (_result, full) => {
+      const size = new TextEncoder().encode(full).byteLength
+      const modifiedAt = Date.now()
+      queryClient.setQueryData<BrowseResult>(
+        browseQueryOptions(path).queryKey,
+        (old) =>
+          old?.kind === "file"
+            ? { ...old, content: full, size, modifiedAt }
+            : old
+      )
+      queryClient.setQueryData<BrowseResult>(
+        browseQueryOptions(parentOf(path)).queryKey,
+        (old) =>
+          old?.kind === "dir"
+            ? {
+                ...old,
+                entries: old.entries.map((entry) =>
+                  entry.path === path ? { ...entry, size, modifiedAt } : entry
+                ),
+              }
+            : old
+      )
+    },
+  })
+
+  const handleSave = React.useCallback(
+    async (full: string) => {
+      await saveMutate(full)
+    },
+    [saveMutate]
+  )
 
   if (!mounted) {
     return <ViewerFallback />
@@ -448,7 +483,7 @@ function SlideDeckCard({ path, content }: { path: string; content: string }) {
 
   return (
     <React.Suspense fallback={<ViewerFallback />}>
-      <SlideDeckEditor path={path} content={content} />
+      <SlideDeckEditor path={path} content={content} onSave={handleSave} />
     </React.Suspense>
   )
 }

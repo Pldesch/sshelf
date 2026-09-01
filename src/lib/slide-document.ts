@@ -1,4 +1,5 @@
 import { parentOf, rawFileUrl } from "./file-kinds"
+import { annotateSlideTextTargets } from "./slide-editing"
 
 const BLOCKED_ELEMENTS = "script, iframe, object, embed, base, form"
 const URL_ATTRIBUTES = [
@@ -38,6 +39,15 @@ body {
   overflow: hidden;
 }`
 
+const PREVIEW_EDIT_CSS = `[data-sshelf-edit-key] {
+  cursor: text;
+}
+
+[data-sshelf-edit-key]:hover {
+  outline: 2px solid rgb(37 99 235 / 55%);
+  outline-offset: 4px;
+}`
+
 interface BuildSlideSrcDocOptions {
   source: string
   path: string
@@ -45,6 +55,7 @@ interface BuildSlideSrcDocOptions {
   revealCss: string
   themeCss: string
   revealScript: string
+  mode?: "preview" | "print"
 }
 
 function isExternalOrEmbeddedUrl(value: string): boolean {
@@ -108,6 +119,92 @@ function escapeScript(value: string): string {
   return value.replace(/<\/script/gi, "<\\/script")
 }
 
+function buildPrintRuntimeScript(revealScript: string): string {
+  return `${escapeScript(revealScript)}\n
+function sshelfWaitForPrintAssets() {
+  var images = Array.from(document.images).map(function (image) {
+    if (image.complete) return Promise.resolve()
+    return new Promise(function (resolve) {
+      image.addEventListener("load", resolve, { once: true })
+      image.addEventListener("error", resolve, { once: true })
+    })
+  })
+  var fonts = document.fonts && document.fonts.ready
+    ? document.fonts.ready.catch(function () {})
+    : Promise.resolve()
+  return Promise.all([fonts].concat(images))
+}
+
+function sshelfPreserveSlideLayout() {
+  var slides = Array.from(document.querySelectorAll(
+    ".slides > section, .slides > section > section"
+  )).filter(function (slide) {
+    return !Array.from(slide.children).some(function (child) {
+      return child.tagName === "SECTION"
+    })
+  })
+
+  slides.forEach(function (slide) {
+    var computed = window.getComputedStyle(slide)
+    ;["padding-top", "padding-right", "padding-bottom", "padding-left"].forEach(function (property) {
+      slide.style.setProperty(property, computed.getPropertyValue(property), "important")
+    })
+
+    var display = computed.getPropertyValue("display")
+    if (display !== "none") {
+      slide.style.setProperty("display", display, "important")
+    }
+  })
+}
+
+function sshelfReportPdfError(error) {
+  var message = error && error.message ? error.message : String(error)
+  window.parent.postMessage({
+    channel: "sshelf:slides:v1",
+    type: "pdf-error",
+    message: message
+  }, "*")
+}
+
+window.addEventListener("error", function (event) {
+  sshelfReportPdfError(event.error || event.message)
+})
+
+window.addEventListener("unhandledrejection", function (event) {
+  sshelfReportPdfError(event.reason)
+})
+
+Reveal.on("pdf-ready", function () {
+  window.parent.postMessage({ channel: "sshelf:slides:v1", type: "pdf-ready" }, "*")
+})
+
+window.addEventListener("message", function (event) {
+  if (
+    event.source !== window.parent ||
+    !event.data ||
+    event.data.channel !== "sshelf:slides:v1" ||
+    event.data.type !== "print-pdf"
+  ) return
+  window.parent.postMessage({ channel: "sshelf:slides:v1", type: "pdf-printing" }, "*")
+  window.print()
+  window.parent.postMessage({ channel: "sshelf:slides:v1", type: "pdf-finished" }, "*")
+})
+
+sshelfWaitForPrintAssets().then(function () {
+  sshelfPreserveSlideLayout()
+  return Reveal.initialize({
+    embedded: false,
+    view: "print",
+    hash: false,
+    controls: false,
+    progress: false,
+    center: true,
+    transition: "none",
+    pdfSeparateFragments: false
+  })
+}).catch(sshelfReportPdfError)`
+}
+
 /**
  * Turn the small, source-controlled .slides.html dialect into a complete
  * Reveal document. The result is designed for an opaque-origin iframe.
@@ -119,6 +216,7 @@ export function buildSlideSrcDoc({
   revealCss,
   themeCss,
   revealScript,
+  mode = "preview",
 }: BuildSlideSrcDocOptions): string {
   const parsed = new DOMParser().parseFromString(source, "text/html")
   const slides = parsed.querySelector(".reveal > .slides")
@@ -126,21 +224,121 @@ export function buildSlideSrcDoc({
     throw new Error('Slide decks need a ".reveal > .slides" container')
   }
 
+  if (mode === "preview") annotateSlideTextTargets(slides)
   sanitizeSlides(slides, path)
   const authoredCss = [...parsed.querySelectorAll("style")]
     .map((style) => style.textContent)
     .join("\n")
-  const runtimeCss = `${HOST_CSS}\n${resetCss}\n${revealCss}\n${themeCss}`
-  const runtimeScript = `${escapeScript(revealScript)}\n
+  const runtimeCss = `${HOST_CSS}\n${
+    mode === "preview" ? PREVIEW_EDIT_CSS : ""
+  }\n${resetCss}\n${revealCss}\n${themeCss}`
+  const runtimeScript =
+    mode === "print"
+      ? buildPrintRuntimeScript(revealScript)
+      : `${escapeScript(revealScript)}\n
 Reveal.initialize({
   embedded: true,
   hash: false,
+  keyboardCondition: "focused",
   controls: true,
   progress: true,
   center: true,
   transition: "slide"
 }).then(function () {
   window.parent.postMessage({ channel: "sshelf:slides:v1", type: "ready" }, "*")
+})
+
+var sshelfEditingEnabled = true
+var sshelfActiveTarget = null
+
+function sshelfScaledLength(value, scale) {
+  var number = Number.parseFloat(value)
+  return Number.isFinite(number) ? number * scale + "px" : value
+}
+
+function sshelfTargetByKey(key) {
+  return Array.from(document.querySelectorAll("[data-sshelf-edit-key]")).find(function (element) {
+    return element.getAttribute("data-sshelf-edit-key") === key
+  })
+}
+
+document.addEventListener("dblclick", function (event) {
+  if (!sshelfEditingEnabled || !(event.target instanceof Element)) return
+  var target = event.target.closest("[data-sshelf-edit-key]")
+  if (!target) return
+  event.preventDefault()
+  event.stopPropagation()
+
+  if (sshelfActiveTarget && sshelfActiveTarget !== target) {
+    sshelfActiveTarget.style.visibility = ""
+  }
+  sshelfActiveTarget = target
+
+  var rect = target.getBoundingClientRect()
+  var computed = window.getComputedStyle(target)
+  var scale = Reveal.getScale() || 1
+  target.style.visibility = "hidden"
+
+  window.parent.postMessage({
+    channel: "sshelf:slides:v1",
+    type: "edit-request",
+    key: target.getAttribute("data-sshelf-edit-key"),
+    html: target.innerHTML,
+    rect: { x: rect.x, y: rect.y, width: rect.width, height: rect.height },
+    style: {
+      color: computed.color,
+      fontFamily: computed.fontFamily,
+      fontFeatureSettings: computed.fontFeatureSettings,
+      fontKerning: computed.fontKerning,
+      fontOpticalSizing: computed.fontOpticalSizing,
+      fontSize: sshelfScaledLength(computed.fontSize, scale),
+      fontStyle: computed.fontStyle,
+      fontStretch: computed.fontStretch,
+      fontVariant: computed.fontVariant,
+      fontVariationSettings: computed.fontVariationSettings,
+      fontWeight: computed.fontWeight,
+      letterSpacing: sshelfScaledLength(computed.letterSpacing, scale),
+      lineHeight: sshelfScaledLength(computed.lineHeight, scale),
+      paddingBottom: sshelfScaledLength(computed.paddingBottom, scale),
+      paddingLeft: sshelfScaledLength(computed.paddingLeft, scale),
+      paddingRight: sshelfScaledLength(computed.paddingRight, scale),
+      paddingTop: sshelfScaledLength(computed.paddingTop, scale),
+      textAlign: computed.textAlign,
+      textDecoration: computed.textDecoration,
+      textRendering: computed.textRendering,
+      textTransform: computed.textTransform,
+      whiteSpace: computed.whiteSpace,
+      wordSpacing: sshelfScaledLength(computed.wordSpacing, scale)
+    }
+  }, "*")
+})
+
+document.addEventListener("pointerdown", function (event) {
+  if (
+    sshelfActiveTarget &&
+    event.target instanceof Element &&
+    !sshelfActiveTarget.contains(event.target)
+  ) {
+    window.parent.postMessage({
+      channel: "sshelf:slides:v1",
+      type: "edit-dismiss"
+    }, "*")
+  }
+})
+
+window.addEventListener("message", function (event) {
+  if (event.source !== window.parent || !event.data || event.data.channel !== "sshelf:slides:v1") return
+  if (event.data.type === "set-editing-enabled") {
+    sshelfEditingEnabled = event.data.enabled === true
+    return
+  }
+  if (event.data.type !== "edit-finish" || typeof event.data.key !== "string") return
+  var target = sshelfTargetByKey(event.data.key)
+  if (!target) return
+  target.innerHTML = event.data.html
+  target.style.visibility = ""
+  sshelfActiveTarget = null
+  Reveal.layout()
 })`
 
   return `<!doctype html>
