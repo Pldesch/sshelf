@@ -13,6 +13,31 @@ const OFFICE_RENDERERS = [
   spreadsheetRenderer,
 ] as unknown as NonNullable<ViewerOptions["renderers"]>
 
+// @file-viewer/react reloads the current source whenever `options` changes by
+// identity. Keep this object stable so unrelated explorer renders do not tear
+// down the renderer (and reset its internal Word/Excel scroll position).
+const OFFICE_VIEWER_OPTIONS = {
+  theme: "light",
+  locale: "en-US",
+  rendererMode: "replace",
+  renderers: OFFICE_RENDERERS,
+  toolbar: {
+    download: false,
+    exportHtml: false,
+    search: true,
+    theme: false,
+    zoom: true,
+  },
+  docx: {
+    externalLinkPolicy: "block",
+    externalResourcePolicy: "block",
+  },
+  spreadsheet: {
+    resizableColumns: false,
+    resizableRows: false,
+  },
+} satisfies ViewerOptions
+
 export default function OfficeViewer({
   path,
   size,
@@ -35,27 +60,7 @@ export default function OfficeViewer({
       // own Word/Excel scroll containers can then scroll instead of growing
       // behind the explorer pane's overflow boundary.
       style={{ height: 0 }}
-      options={{
-        theme: "light",
-        locale: "en-US",
-        rendererMode: "replace",
-        renderers: OFFICE_RENDERERS,
-        toolbar: {
-          download: false,
-          exportHtml: false,
-          search: true,
-          theme: false,
-          zoom: true,
-        },
-        docx: {
-          externalLinkPolicy: "block",
-          externalResourcePolicy: "block",
-        },
-        spreadsheet: {
-          resizableColumns: false,
-          resizableRows: false,
-        },
-      }}
+      options={OFFICE_VIEWER_OPTIONS}
     />
   )
 }
