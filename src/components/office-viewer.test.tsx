@@ -33,6 +33,10 @@ describe("OfficeViewer", () => {
     const view = render(<OfficeViewer path="reports/demo.docx" size={1024} />)
     const firstOptions = fileViewerSpy.mock.lastCall?.[0].options
     expect(firstOptions).toBeDefined()
+    expect(firstOptions).toMatchObject({ styleIsolation: "scoped" })
+    expect(fileViewerSpy.mock.lastCall?.[0].className).toContain(
+      "office-viewer"
+    )
 
     view.rerender(<OfficeViewer path="reports/demo.docx" size={1024} />)
 

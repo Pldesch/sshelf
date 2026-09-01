@@ -18,6 +18,10 @@ const OFFICE_RENDERERS = [
 // down the renderer (and reset its internal Word/Excel scroll position).
 const OFFICE_VIEWER_OPTIONS = {
   theme: "light",
+  // Word needs one real scroll owner. Scoped light DOM lets the product-level
+  // rule in styles.css hand scrolling to the viewer shell instead of nesting
+  // a second scroll surface inside it.
+  styleIsolation: "scoped",
   locale: "en-US",
   rendererMode: "replace",
   renderers: OFFICE_RENDERERS,
@@ -55,10 +59,9 @@ export default function OfficeViewer({
       type={extensionOf(name)}
       size={size}
       aria-label={`Preview of ${name}`}
-      className="min-h-0 w-full flex-1 overflow-hidden bg-card"
-      // A zero flex basis gives the viewer a definite remaining height. Its
-      // own Word/Excel scroll containers can then scroll instead of growing
-      // behind the explorer pane's overflow boundary.
+      className="office-viewer min-h-0 w-full flex-1 overflow-hidden bg-card"
+      // A zero flex basis gives the viewer a definite remaining height inside
+      // the explorer pane.
       style={{ height: 0 }}
       options={OFFICE_VIEWER_OPTIONS}
     />
