@@ -5,6 +5,7 @@ import {
   FolderOpenIcon,
   ImageIcon,
   FileCodeIcon,
+  FileSpreadsheetIcon,
   BookOpenTextIcon,
 } from "lucide-react"
 import { fileKindOf } from "@/lib/file-kinds"
@@ -33,8 +34,12 @@ export function FileTypeIcon({
         ? BookOpenTextIcon
         : kind === "image"
           ? ImageIcon
-          : kind === "text"
-            ? FileCodeIcon
-            : FileGenericIcon
+          : kind === "spreadsheet"
+            ? FileSpreadsheetIcon
+            : kind === "word"
+              ? FileTextIcon
+              : kind === "text"
+                ? FileCodeIcon
+                : FileGenericIcon
   return <Icon className={cn("shrink-0", className)} />
 }

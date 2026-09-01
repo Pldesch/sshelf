@@ -64,6 +64,7 @@ const TextViewer = React.lazy(() => import("@/components/text-viewer"))
 const MarkdownEditor = React.lazy(() => import("@/components/markdown-editor"))
 const DatabaseView = React.lazy(() => import("@/components/database-view"))
 const HtmlViewer = React.lazy(() => import("@/components/html-viewer"))
+const OfficeViewer = React.lazy(() => import("@/components/office-viewer"))
 
 /** Which page to render; the data itself lives in the query cache. */
 export type PageDescriptor =
@@ -167,7 +168,9 @@ function ExplorerShell({
   const root = tree?.root ?? ""
   // Data-heavy previews use the full available pane; prose keeps a readable column.
   const fullPane = file
-    ? ["database", "html"].includes(fileKindOf(nameOf(file.path)))
+    ? ["database", "html", "word", "spreadsheet"].includes(
+        fileKindOf(nameOf(file.path))
+      )
     : false
   return (
     <div
@@ -408,6 +411,10 @@ function FileView({ data }: { data: FileData }) {
       ) : kind === "database" ? (
         <React.Suspense fallback={<ViewerFallback />}>
           <DatabaseView path={data.path} />
+        </React.Suspense>
+      ) : kind === "word" || kind === "spreadsheet" ? (
+        <React.Suspense fallback={<ViewerFallback />}>
+          <OfficeViewer path={data.path} size={data.size} />
         </React.Suspense>
       ) : (kind === "markdown" || kind === "text") && data.content === null ? (
         <Alert>

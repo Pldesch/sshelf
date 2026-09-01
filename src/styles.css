@@ -255,3 +255,12 @@
 .hljs-deletion { color: var(--red-500); }
 .hljs-emphasis { font-style: italic; }
 .hljs-strong { font-weight: 700; }
+
+/* The Word renderer otherwise nests its own full-height overflow pane inside
+   the viewer shell's scroll pane. Let the document expand so the shell is the
+   single native vertical scroll owner. Spreadsheet keeps its virtual grid. */
+.office-viewer .docx-fit-viewer {
+  height: auto;
+  min-height: 100%;
+  overflow: visible;
+}
