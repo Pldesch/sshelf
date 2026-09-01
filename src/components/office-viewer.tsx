@@ -30,7 +30,11 @@ export default function OfficeViewer({
       type={extensionOf(name)}
       size={size}
       aria-label={`Preview of ${name}`}
-      className="h-full min-h-0 w-full overflow-hidden bg-card"
+      className="min-h-0 w-full flex-1 overflow-hidden bg-card"
+      // A zero flex basis gives the viewer a definite remaining height. Its
+      // own Word/Excel scroll containers can then scroll instead of growing
+      // behind the explorer pane's overflow boundary.
+      style={{ height: 0 }}
       options={{
         theme: "light",
         locale: "en-US",
