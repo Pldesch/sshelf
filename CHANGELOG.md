@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.7.1] - 2026-09-01
+
+### Added
+
+- Added Reveal.js previews for `.slides.html` files, with presentation controls
+  and a clean white workspace canvas.
+- Added inline rich-text editing with autosave and an in-memory revert history,
+  while keeping editing metadata out of the source HTML.
+- Added Reveal's native PDF export flow with authored slide spacing and flex or
+  grid layouts preserved in print mode.
+
 ## [0.7.0] - 2026-08-25
 
 ### Changed
