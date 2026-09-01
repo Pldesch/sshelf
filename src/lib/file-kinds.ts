@@ -3,6 +3,7 @@ export type FileKind =
   | "pdf"
   | "image"
   | "html"
+  | "slides"
   | "text"
   | "database"
   | "other"
@@ -46,6 +47,7 @@ export function extensionOf(name: string): string {
 }
 
 export function fileKindOf(name: string): FileKind {
+  if (name.toLowerCase().endsWith(".slides.html")) return "slides"
   const ext = extensionOf(name)
   if (ext === "md" || ext === "mdx" || ext === "markdown") return "markdown"
   if (ext === "pdf") return "pdf"
@@ -57,6 +59,7 @@ export function fileKindOf(name: string): FileKind {
 }
 
 export function mimeTypeOf(name: string): string {
+  if (fileKindOf(name) === "slides") return "text/html; charset=utf-8"
   const ext = extensionOf(name)
   const map: Record<string, string> = {
     pdf: "application/pdf",

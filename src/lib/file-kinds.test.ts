@@ -29,6 +29,11 @@ describe("extensionOf", () => {
 })
 
 describe("fileKindOf", () => {
+  it("detects slide decks before generic HTML", () => {
+    expect(fileKindOf("pitch.slides.html")).toBe("slides")
+    expect(fileKindOf("PITCH.SLIDES.HTML")).toBe("slides")
+  })
+
   it("detects markdown", () => {
     expect(fileKindOf("a.md")).toBe("markdown")
     expect(fileKindOf("a.mdx")).toBe("markdown")
@@ -73,6 +78,7 @@ describe("mimeTypeOf", () => {
   it("maps known extensions", () => {
     expect(mimeTypeOf("x.pdf")).toBe("application/pdf")
     expect(mimeTypeOf("x.png")).toBe("image/png")
+    expect(mimeTypeOf("pitch.slides.html")).toBe("text/html; charset=utf-8")
   })
 
   it("falls back to octet-stream for unknown extensions", () => {

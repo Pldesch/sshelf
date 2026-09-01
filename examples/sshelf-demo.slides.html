@@ -1,0 +1,146 @@
+<!doctype html>
+<html data-sshelf-slides="1">
+  <head>
+    <meta charset="utf-8" />
+    <style data-deck-style>
+      :root {
+        --ink: #17233b;
+        --paper: #f8f2e7;
+        --orange: #f56f3a;
+        --mint: #a9e6cf;
+      }
+
+      .reveal {
+        color: var(--ink);
+        font-family: "Hanken Grotesk", Inter, system-ui, sans-serif;
+      }
+
+      .reveal .slides section {
+        box-sizing: border-box;
+        height: 100%;
+        padding: 72px 80px;
+        text-align: left;
+      }
+
+      .reveal h1,
+      .reveal h2,
+      .reveal p {
+        margin: 0;
+      }
+
+      .reveal h1 {
+        max-width: 820px;
+        font-size: 76px;
+        line-height: 0.98;
+        letter-spacing: -0.055em;
+      }
+
+      .reveal h2 {
+        font-size: 52px;
+        letter-spacing: -0.04em;
+      }
+
+      .reveal p {
+        font-size: 25px;
+        line-height: 1.45;
+      }
+
+      .eyebrow {
+        margin-bottom: 28px;
+        color: var(--orange);
+        font-size: 18px;
+        font-weight: 750;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+      }
+
+      .cover {
+        background:
+          radial-gradient(
+            circle at 88% 16%,
+            var(--mint) 0 16%,
+            transparent 16.2%
+          ),
+          var(--paper);
+      }
+
+      .cover .lede {
+        max-width: 650px;
+        margin-top: 34px;
+        color: #516078;
+      }
+
+      .number {
+        display: block;
+        margin-bottom: 12px;
+        color: var(--orange);
+        font-size: 92px;
+        font-weight: 800;
+        letter-spacing: -0.06em;
+      }
+
+      .metric-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 30px;
+        margin-top: 54px;
+      }
+
+      .metric {
+        border-top: 5px solid var(--ink);
+        padding-top: 26px;
+      }
+
+      .closing {
+        display: grid !important;
+        place-content: center;
+        background: var(--ink);
+        color: white;
+        text-align: center !important;
+      }
+
+      .closing strong {
+        color: var(--mint);
+      }
+    </style>
+  </head>
+  <body>
+    <div class="reveal">
+      <div class="slides">
+        <section class="cover" data-slide-id="cover">
+          <div class="eyebrow">Sshelf slides prototype</div>
+          <h1>Pitch decks that live beside your work.</h1>
+          <p class="lede">
+            Plain HTML and CSS on the server, rendered as a real presentation
+            without leaving Sshelf.
+          </p>
+          <aside class="notes">
+            Use the arrow keys to move through the demo.
+          </aside>
+        </section>
+
+        <section data-slide-id="why-html">
+          <div class="eyebrow">Why this format</div>
+          <h2>Readable by people, models, and browsers.</h2>
+          <div class="metric-grid">
+            <div class="metric">
+              <span class="number">01</span>
+              <p>Each top-level section is one slide.</p>
+            </div>
+            <div class="metric">
+              <span class="number">02</span>
+              <p>Deck styling stays in ordinary CSS.</p>
+            </div>
+          </div>
+        </section>
+
+        <section class="closing" data-slide-id="closing">
+          <div>
+            <div class="eyebrow">Browser save verified</div>
+            <h2>Open the file.<br /><strong>Present immediately.</strong></h2>
+          </div>
+        </section>
+      </div>
+    </div>
+  </body>
+</html>

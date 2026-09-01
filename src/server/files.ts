@@ -41,7 +41,7 @@ export interface FileView {
   path: string
   size: number
   modifiedAt: number
-  /** Present for markdown and text files small enough to render inline. */
+  /** Present for editable or text-like files small enough to render inline. */
   content: string | null
   stale: boolean
 }
@@ -135,7 +135,10 @@ export const browsePath = createServerFn()
     let content: string | null = null
     let stale = found.stale
     if (
-      (kind === "markdown" || kind === "text" || kind === "html") &&
+      (kind === "markdown" ||
+        kind === "text" ||
+        kind === "html" ||
+        kind === "slides") &&
       entry.size <= MAX_TEXT_BYTES
     ) {
       const file = await readRemoteFile(data.path)
@@ -156,10 +159,14 @@ export const saveFile = createServerFn({ method: "POST" })
   .inputValidator((data: { path: string; content: string }) => data)
   .handler(async ({ data }) => {
     if (!data.path) throw new Error("No file selected")
-    // The editor only supports markdown — refuse anything else so a
-    // stray request can never overwrite a binary or config file.
-    if (fileKindOf(data.path) !== "markdown") {
-      throw new Error("Only markdown files can be edited here")
+    // Keep the write capability narrow so a stray request cannot overwrite a
+    // binary or arbitrary config file.
+    const kind = fileKindOf(data.path)
+    if (kind !== "markdown" && kind !== "slides") {
+      throw new Error("Only markdown and slide files can be edited here")
+    }
+    if (Buffer.byteLength(data.content, "utf-8") > MAX_TEXT_BYTES) {
+      throw new Error("The file is too large to edit")
     }
     const found = await findEntry(data.path)
     if (!found.value) {

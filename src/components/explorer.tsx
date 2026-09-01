@@ -64,6 +64,9 @@ const TextViewer = React.lazy(() => import("@/components/text-viewer"))
 const MarkdownEditor = React.lazy(() => import("@/components/markdown-editor"))
 const DatabaseView = React.lazy(() => import("@/components/database-view"))
 const HtmlViewer = React.lazy(() => import("@/components/html-viewer"))
+const SlideDeckEditor = React.lazy(
+  () => import("@/components/slide-deck-editor")
+)
 
 /** Which page to render; the data itself lives in the query cache. */
 export type PageDescriptor =
@@ -167,7 +170,7 @@ function ExplorerShell({
   const root = tree?.root ?? ""
   // Data-heavy previews use the full available pane; prose keeps a readable column.
   const fullPane = file
-    ? ["database", "html"].includes(fileKindOf(nameOf(file.path)))
+    ? ["database", "html", "slides"].includes(fileKindOf(nameOf(file.path)))
     : false
   return (
     <div
@@ -401,6 +404,12 @@ function FileView({ data }: { data: FileData }) {
         <React.Suspense fallback={<ViewerFallback />}>
           <HtmlViewer path={data.path} content={data.content} />
         </React.Suspense>
+      ) : kind === "slides" && data.content !== null ? (
+        <SlideDeckCard
+          key={data.path}
+          path={data.path}
+          content={data.content}
+        />
       ) : kind === "pdf" ? (
         <PdfViewer path={data.path} />
       ) : kind === "image" ? (
@@ -409,7 +418,8 @@ function FileView({ data }: { data: FileData }) {
         <React.Suspense fallback={<ViewerFallback />}>
           <DatabaseView path={data.path} />
         </React.Suspense>
-      ) : (kind === "markdown" || kind === "text") && data.content === null ? (
+      ) : (kind === "markdown" || kind === "text" || kind === "slides") &&
+        data.content === null ? (
         <Alert>
           <TriangleAlertIcon />
           <AlertTitle>This file is too large to preview</AlertTitle>
@@ -424,6 +434,22 @@ function FileView({ data }: { data: FileData }) {
         <UnsupportedViewer path={data.path} name={name} />
       )}
     </>
+  )
+}
+
+function SlideDeckCard({ path, content }: { path: string; content: string }) {
+  const [mounted, setMounted] = React.useState(false)
+
+  React.useEffect(() => setMounted(true), [])
+
+  if (!mounted) {
+    return <ViewerFallback />
+  }
+
+  return (
+    <React.Suspense fallback={<ViewerFallback />}>
+      <SlideDeckEditor path={path} content={content} />
+    </React.Suspense>
   )
 }
 
