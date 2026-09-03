@@ -3,7 +3,7 @@
 import * as React from "react"
 import { Dialog as DialogPrimitive } from "radix-ui"
 import { useNavigate } from "@tanstack/react-router"
-import { useHotkey } from "@tanstack/react-hotkeys"
+import { useAppHotkey } from "@/hooks/use-app-hotkey"
 import { useQuery } from "@tanstack/react-query"
 import { CornerDownLeftIcon, SearchIcon } from "lucide-react"
 import { FileTypeIcon } from "@/components/file-icon"
@@ -35,7 +35,10 @@ export function FileSearchDialog() {
 
   // ⌘P on macOS, Ctrl+P elsewhere. `Mod` resolves per platform and
   // preventDefault stops the browser's own print/quick-open binding.
-  useHotkey("Mod+P", () => setOpen(true), { preventDefault: true })
+  useAppHotkey("Mod+P", () => setOpen(true), {
+    allowInEditable: true,
+    requireReset: true,
+  })
 
   const trimmed = query.trim()
 

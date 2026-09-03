@@ -143,6 +143,7 @@ export function SlideTextOverlay({
   return (
     <div
       data-slide-text-editor
+      data-app-shortcuts="off"
       className="absolute z-20 box-border rounded-sm bg-transparent outline-2 outline-offset-4 outline-blue-600/70"
       style={{
         left: rect.x,
