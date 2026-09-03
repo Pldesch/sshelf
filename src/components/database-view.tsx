@@ -1,6 +1,6 @@
 import * as React from "react"
 import { Popover } from "radix-ui"
-import { useHotkey } from "@tanstack/react-hotkeys"
+import { useAppHotkey } from "@/hooks/use-app-hotkey"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import {
   ArrowDownIcon,
@@ -299,14 +299,14 @@ export default function DatabaseView({ path }: { path: string }) {
 
   // ⌘F / Ctrl+F expands the (collapsed) table search and focuses it, instead
   // of the browser's find bar. Registered only while a database is open.
-  useHotkey(
+  useAppHotkey(
     "Mod+F",
     () => {
       setSearchExpanded(true)
       searchRef.current?.focus()
       searchRef.current?.select()
     },
-    { preventDefault: true }
+    { allowInEditable: true, requireReset: true }
   )
 
   // Load this table's saved view (from the _codex_views sidecar table) when it
