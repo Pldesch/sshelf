@@ -17,7 +17,69 @@ const REWRITTEN_ASSET_ATTRIBUTES = new Set([
   "data-background-video",
 ])
 
-const HOST_CSS = `html,
+const DEFAULT_SLIDE_GEOMETRY = {
+  width: 960,
+  height: 700,
+  margin: 0,
+} as const
+
+interface SlideGeometry {
+  width: number
+  height: number
+  margin: number
+}
+
+function slideGeometryOf(documentElement: Element): SlideGeometry {
+  return {
+    width: geometryAttribute(
+      documentElement,
+      "data-slide-width",
+      DEFAULT_SLIDE_GEOMETRY.width,
+      320,
+      7680
+    ),
+    height: geometryAttribute(
+      documentElement,
+      "data-slide-height",
+      DEFAULT_SLIDE_GEOMETRY.height,
+      240,
+      4320
+    ),
+    margin: geometryAttribute(
+      documentElement,
+      "data-slide-margin",
+      DEFAULT_SLIDE_GEOMETRY.margin,
+      0,
+      0.5
+    ),
+  }
+}
+
+function geometryAttribute(
+  element: Element,
+  attribute: string,
+  fallback: number,
+  minimum: number,
+  maximum: number
+): number {
+  const raw = element.getAttribute(attribute)
+  if (raw === null) return fallback
+  const value = Number(raw)
+  if (
+    !raw.trim() ||
+    !Number.isFinite(value) ||
+    value < minimum ||
+    value > maximum
+  ) {
+    throw new Error(
+      `${attribute} must be a number between ${minimum} and ${maximum}`
+    )
+  }
+  return value
+}
+
+function buildHostCss({ width, height }: SlideGeometry): string {
+  return `html,
 body {
   width: 100%;
   height: 100%;
@@ -27,6 +89,8 @@ body {
 
 .reveal-viewport,
 .reveal {
+  --sshelf-slide-width: ${width}px;
+  --sshelf-slide-height: ${height}px;
   background-color: #fff !important;
 }
 
@@ -34,10 +98,14 @@ body {
   background: #fff !important;
 }
 
-.reveal .slides > section,
-.reveal .slides > section > section {
+html body .reveal .slides > section:not(.stack),
+html body .reveal .slides > section > section,
+html body .reveal .slides .pdf-page > section:not(.stack) {
+  width: var(--sshelf-slide-width) !important;
+  height: var(--sshelf-slide-height) !important;
   overflow: hidden;
 }`
+}
 
 const PREVIEW_EDIT_CSS = `[data-sshelf-edit-key] {
   cursor: text;
@@ -119,7 +187,10 @@ function escapeScript(value: string): string {
   return value.replace(/<\/script/gi, "<\\/script")
 }
 
-function buildPrintRuntimeScript(revealScript: string): string {
+function buildPrintRuntimeScript(
+  revealScript: string,
+  geometry: SlideGeometry
+): string {
   return `${escapeScript(revealScript)}\n
 function sshelfWaitForPrintAssets() {
   var images = Array.from(document.images).map(function (image) {
@@ -195,6 +266,9 @@ sshelfWaitForPrintAssets().then(function () {
   return Reveal.initialize({
     embedded: false,
     view: "print",
+    width: ${geometry.width},
+    height: ${geometry.height},
+    margin: ${geometry.margin},
     hash: false,
     controls: false,
     progress: false,
@@ -219,6 +293,7 @@ export function buildSlideSrcDoc({
   mode = "preview",
 }: BuildSlideSrcDocOptions): string {
   const parsed = new DOMParser().parseFromString(source, "text/html")
+  const geometry = slideGeometryOf(parsed.documentElement)
   const slides = parsed.querySelector(".reveal > .slides")
   if (!slides) {
     throw new Error('Slide decks need a ".reveal > .slides" container')
@@ -229,15 +304,18 @@ export function buildSlideSrcDoc({
   const authoredCss = [...parsed.querySelectorAll("style")]
     .map((style) => style.textContent)
     .join("\n")
-  const runtimeCss = `${HOST_CSS}\n${
+  const runtimeCss = `${buildHostCss(geometry)}\n${
     mode === "preview" ? PREVIEW_EDIT_CSS : ""
   }\n${resetCss}\n${revealCss}\n${themeCss}`
   const runtimeScript =
     mode === "print"
-      ? buildPrintRuntimeScript(revealScript)
+      ? buildPrintRuntimeScript(revealScript, geometry)
       : `${escapeScript(revealScript)}\n
 Reveal.initialize({
   embedded: true,
+  width: ${geometry.width},
+  height: ${geometry.height},
+  margin: ${geometry.margin},
   hash: false,
   keyboardCondition: "focused",
   controls: true,

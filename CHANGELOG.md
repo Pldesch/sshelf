@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Kept Reveal slide previews and PDF exports on the same validated, per-deck
+  canvas size so print mode no longer stretches or clips full-height slides,
+  and made decks full bleed by default.
+
 ## [0.7.1] - 2026-09-01
 
 ### Added
