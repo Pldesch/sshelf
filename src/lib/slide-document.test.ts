@@ -46,7 +46,17 @@ describe("buildSlideSrcDoc", () => {
     expect(html).toContain("background-color: #fff !important;")
     expect(html).toContain(".reveal .backgrounds .slide-background {")
     expect(html).toContain("background: #fff !important;")
-    expect(html).toContain(".reveal .slides > section,\n")
+    expect(html).toContain("html body .reveal .slides > section:not(.stack),\n")
+    expect(html).toContain(
+      "html body .reveal .slides .pdf-page > section:not(.stack)"
+    )
+    expect(html).toContain("--sshelf-slide-width: 960px;")
+    expect(html).toContain("--sshelf-slide-height: 700px;")
+    expect(html).toContain("width: var(--sshelf-slide-width) !important;")
+    expect(html).toContain("height: var(--sshelf-slide-height) !important;")
+    expect(html).toContain("width: 960,")
+    expect(html).toContain("height: 700,")
+    expect(html).toContain("margin: 0,")
     expect(html).toContain("overflow: hidden;")
     expect(html).toContain("window.Reveal")
     expect(html).toContain('type: "edit-request"')
@@ -54,6 +64,74 @@ describe("buildSlideSrcDoc", () => {
     expect(html).not.toContain("window.evil")
     expect(html).not.toContain("javascript:alert")
     expect(html).toContain("Content-Security-Policy")
+  })
+
+  it.each([
+    [1280, 720, 0],
+    [1024, 768, 0.04],
+    [720, 1280, 0.1],
+  ])(
+    "uses %sx%s deck geometry with margin %s in preview and print documents",
+    (width, height, margin) => {
+      const geometrySource = source.replace(
+        'data-sshelf-slides="1"',
+        `data-sshelf-slides="1" data-slide-width="${width}" data-slide-height="${height}" data-slide-margin="${margin}"`
+      )
+      const options = {
+        source: geometrySource,
+        path: "decks/custom-size.slides.html",
+        resetCss: "",
+        revealCss: "",
+        themeCss: "",
+        revealScript: "window.Reveal = revealStub",
+      }
+      const preview = buildSlideSrcDoc(options)
+      const print = buildSlideSrcDoc({ ...options, mode: "print" })
+
+      for (const html of [preview, print]) {
+        expect(html).toContain(`--sshelf-slide-width: ${width}px;`)
+        expect(html).toContain(`--sshelf-slide-height: ${height}px;`)
+        expect(html).toContain(`width: ${width},`)
+        expect(html).toContain(`height: ${height},`)
+        expect(html).toContain(`margin: ${margin},`)
+      }
+    }
+  )
+
+  it.each([
+    ["data-slide-width", "0"],
+    ["data-slide-height", "not-a-number"],
+    ["data-slide-margin", "0.75"],
+  ])("rejects invalid %s metadata", (attribute, value) => {
+    const invalidSource = source.replace(
+      'data-sshelf-slides="1"',
+      `data-sshelf-slides="1" ${attribute}="${value}"`
+    )
+
+    expect(() =>
+      buildSlideSrcDoc({
+        source: invalidSource,
+        path: "decks/invalid.slides.html",
+        resetCss: "",
+        revealCss: "",
+        themeCss: "",
+        revealScript: "",
+      })
+    ).toThrow(attribute)
+  })
+
+  it("uses a full-bleed page when deck metadata omits the margin", () => {
+    const html = buildSlideSrcDoc({
+      source,
+      path: "decks/full-bleed.slides.html",
+      resetCss: "",
+      revealCss: "",
+      themeCss: "",
+      revealScript: "window.Reveal = revealStub",
+      mode: "print",
+    })
+
+    expect(html).toContain("margin: 0,")
   })
 
   it("rejects files without a Reveal slide container", () => {

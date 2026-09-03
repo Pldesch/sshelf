@@ -56,6 +56,8 @@ reach over SSH, Sshelf is meant to be the front door to it.
   upload files and folders (drag-and-drop included).
 - **Markdown editor** — Markdown files open straight into a block-based WYSIWYG
   editor that autosaves over SSH as you type, with local image uploads.
+- **Slide decks** — `.slides.html` files open as editable Reveal presentations
+  and export through Reveal's PDF print view.
 - **Database views** — open a `.sqlite`/`.db` file as Notion-style tables:
   typed columns (text, number, select, status, checkbox, date, URL…), a Kanban
   **board view**, per-row Markdown pages, filtering/sorting/search, and saved
@@ -89,6 +91,26 @@ Sshelf is configured through environment variables (all optional):
 | `SSHELF_REMOTE_ROOT` | `/home/ubuntu`    | The remote directory shown as the workspace root.               |
 
 The chosen host is also remembered between runs in `~/.sshelf.json`.
+
+## Reveal slide decks
+
+Each `.slides.html` document uses one canvas size for all of its sections. Set
+that size on the document element:
+
+```html
+<html
+  data-sshelf-slides="1"
+  data-slide-width="1280"
+  data-slide-height="720"
+  data-slide-margin="0"
+></html>
+```
+
+Sshelf passes these values to both the editor preview and Reveal's PDF view.
+Decks without size metadata use a full-bleed 960×700 canvas with no margin.
+Width must be between 320 and 7680 pixels, height between 240 and 4320 pixels,
+and margin between 0 and 0.5. Individual sections cannot use different canvas
+sizes within the same deck.
 
 ## Desktop app
 
