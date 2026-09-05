@@ -66,24 +66,31 @@ export interface EstradeckSyncResult {
 
 const syncQueues = new Map<string, Promise<EstradeckSyncResult>>()
 
-function configuredEditorUrl(): string | null {
-  const configured = process.env.SSHELF_ESTRADECK_URL
-  if (!configured && process.env.NODE_ENV !== "development") return null
-  const candidate = configured ?? DEFAULT_EDITOR_URL
+export function normalizeEstradeckEditorUrl(candidate: string): string | null {
   if (candidate.startsWith("/")) {
     if (candidate.startsWith("//")) return null
-    return candidate.replace(/\/$/, "") || "/"
+    const url = new URL(candidate, "http://sshelf.invalid")
+    url.pathname =
+      url.pathname === "/" ? "/" : `${url.pathname.replace(/\/+$/, "")}/`
+    return url.pathname
   }
   try {
     const url = new URL(candidate)
     if (url.protocol !== "http:" && url.protocol !== "https:") return null
-    url.pathname = url.pathname.replace(/\/$/, "") || "/"
+    url.pathname =
+      url.pathname === "/" ? "/" : `${url.pathname.replace(/\/+$/, "")}/`
     url.search = ""
     url.hash = ""
-    return url.toString().replace(/\/$/, "")
+    return url.toString()
   } catch {
     return null
   }
+}
+
+function configuredEditorUrl(): string | null {
+  const configured = process.env.SSHELF_ESTRADECK_URL
+  if (!configured && process.env.NODE_ENV !== "development") return null
+  return normalizeEstradeckEditorUrl(configured ?? DEFAULT_EDITOR_URL)
 }
 
 function deckIdFor(path: string): string {

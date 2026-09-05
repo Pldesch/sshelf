@@ -2,7 +2,25 @@ import { describe, expect, it } from "vitest"
 import {
   normalizeEstradeckAssetReference,
   normalizeEstradeckChangedFile,
+  normalizeEstradeckEditorUrl,
 } from "./estradeck"
+
+describe("Estradeck editor URL validation", () => {
+  it("keeps the trailing slash required by Estradeck's Vite base path", () => {
+    expect(normalizeEstradeckEditorUrl("/estradeck")).toBe("/estradeck/")
+    expect(normalizeEstradeckEditorUrl("/estradeck/")).toBe("/estradeck/")
+    expect(normalizeEstradeckEditorUrl("http://localhost:5173/estradeck")).toBe(
+      "http://localhost:5173/estradeck/"
+    )
+  })
+
+  it("removes configured query state and rejects protocol-relative URLs", () => {
+    expect(normalizeEstradeckEditorUrl("/estradeck/?deck=other#slide")).toBe(
+      "/estradeck/"
+    )
+    expect(normalizeEstradeckEditorUrl("//example.com/estradeck")).toBeNull()
+  })
+})
 
 describe("Estradeck bridge path validation", () => {
   it("accepts only deck files and bounded asset folders", () => {

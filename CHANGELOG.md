@@ -28,6 +28,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Database search, filters, sorting, and row counts now run against the complete
   SQLite table before bounded pagination.
 
+### Fixed
+
+- Preserved Estradeck's required trailing-slash base path so the embedded editor
+  starts correctly through forwarded Sshelf development ports.
+
 ## [0.7.2] - 2026-09-03
 
 ### Fixed
