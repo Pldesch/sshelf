@@ -17,7 +17,7 @@
   ],
   "scripts": {
     "dev": "concurrently -k -n sshelf,estradeck-server,estradeck-client \"bun run dev:sshelf\" \"bun run dev:estradeck-server\" \"bun run dev:estradeck-client\"",
-    "dev:local": "NODE_ENV=development SSHELF_TRANSPORT=local SSHELF_LOCAL_ROOT=\"${SSHELF_LOCAL_ROOT:-$PWD}\" bun run dev",
+    "dev:local": "NODE_ENV=development SSHELF_TRANSPORT=local SSHELF_LOCAL_ROOT=\"${SSHELF_LOCAL_ROOT:-/home/ubuntu}\" bun run dev",
     "dev:sshelf": "vite dev --port 3010",
     "dev:estradeck-server": "bun run --cwd vendor/estradeck/server dev",
     "dev:estradeck-client": "bun run --cwd vendor/estradeck/client dev -- --host 127.0.0.1",

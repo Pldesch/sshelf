@@ -86,17 +86,17 @@ host must already work from your terminal (`ssh <host>`); Sshelf doesn't manage
 keys or credentials — it reuses yours.
 
 For development inside the same POSIX server whose files you want to browse,
-you can opt into the guarded local transport. By default this exposes only the
-directory where you run the command:
+you can opt into the guarded local transport. By default this exposes the
+standard Sshelf workspace root at `/home/ubuntu`:
 
 ```sh
 bun run dev:local
 ```
 
-Set an explicit root when you want to browse a different bounded directory:
+Override the root when you want to browse a different bounded directory:
 
 ```sh
-SSHELF_LOCAL_ROOT=/home/ubuntu bun run dev:local
+SSHELF_LOCAL_ROOT=/absolute/path/to/workspace bun run dev:local
 ```
 
 Local transport is rejected by production builds and runtimes. It also requires
