@@ -81,16 +81,33 @@ On first run you pick which host to connect to from your `~/.ssh/config`. The
 host must already work from your terminal (`ssh <host>`); Sshelf doesn't manage
 keys or credentials — it reuses yours.
 
+For development inside the same POSIX server whose files you want to browse,
+you can opt into the guarded local transport:
+
+```sh
+NODE_ENV=development \
+SSHELF_TRANSPORT=local \
+SSHELF_LOCAL_ROOT=/home/ubuntu \
+bun run dev
+```
+
+Local transport is rejected by production builds and runtimes. It also requires
+an explicit, existing root other than `/`, rejects symlink traversal, cannot be
+enabled from the browser, and does not write the local target to the remembered
+SSH-host configuration.
+
 ## Configuration
 
-Sshelf is configured through environment variables (all optional):
+Sshelf is configured through environment variables:
 
-| Variable             | Default           | Description                                                     |
-| -------------------- | ----------------- | --------------------------------------------------------------- |
-| `SSHELF_SSH_HOST`    | _(chosen in-app)_ | SSH host to connect to. Must match an entry in `~/.ssh/config`. |
-| `SSHELF_REMOTE_ROOT` | `/home/ubuntu`    | The remote directory shown as the workspace root.               |
+| Variable             | Default           | Description                                                                                       |
+| -------------------- | ----------------- | ------------------------------------------------------------------------------------------------- |
+| `SSHELF_TRANSPORT`   | `ssh`             | Server-side transport. `local` is accepted only in an explicit development runtime.               |
+| `SSHELF_SSH_HOST`    | _(chosen in-app)_ | SSH host to connect to. Must match an entry in `~/.ssh/config`.                                   |
+| `SSHELF_REMOTE_ROOT` | `/home/ubuntu`    | Workspace root used by SSH transport.                                                             |
+| `SSHELF_LOCAL_ROOT`  | _(required)_      | Existing absolute POSIX directory used only when `SSHELF_TRANSPORT=local`; `/` is never accepted. |
 
-The chosen host is also remembered between runs in `~/.sshelf.json`.
+The chosen SSH host is also remembered between runs in `~/.sshelf.json`.
 
 ## Reveal slide decks
 
@@ -184,7 +201,13 @@ function sshelfFile(type, path, content) {
     }
     window.addEventListener("message", onMessage)
     window.parent.postMessage(
-      { channel, type, requestId, path, ...(content == null ? {} : { content }) },
+      {
+        channel,
+        type,
+        requestId,
+        path,
+        ...(content == null ? {} : { content }),
+      },
       "*"
     )
   })

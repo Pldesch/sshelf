@@ -79,7 +79,7 @@ export function AppSidebar() {
                 <>
                   <span className="presence-dot size-[7px]" />
                   <span className="font-mono text-[10px] text-[var(--navy-300)]">
-                    connected
+                    {tree?.transport === "local" ? "local dev" : "connected"}
                   </span>
                 </>
               ) : state === "connecting" ? (
@@ -108,19 +108,21 @@ export function AppSidebar() {
               <RefreshCwIcon className="size-3.5" />
             </button>
           )}
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Link
-                to="/"
-                search={{ setup: true }}
-                aria-label="Change server"
-                className="flex size-7 items-center justify-center rounded-md text-[var(--navy-300)] transition-colors hover:bg-[var(--navy-600)] hover:text-[var(--paper)]"
-              >
-                <ArrowLeftRightIcon className="size-3.5" />
-              </Link>
-            </TooltipTrigger>
-            <TooltipContent side="top">Change server</TooltipContent>
-          </Tooltip>
+          {tree?.transport !== "local" && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Link
+                  to="/"
+                  search={{ setup: true }}
+                  aria-label="Change server"
+                  className="flex size-7 items-center justify-center rounded-md text-[var(--navy-300)] transition-colors hover:bg-[var(--navy-600)] hover:text-[var(--paper)]"
+                >
+                  <ArrowLeftRightIcon className="size-3.5" />
+                </Link>
+              </TooltipTrigger>
+              <TooltipContent side="top">Change server</TooltipContent>
+            </Tooltip>
+          )}
         </div>
       </SidebarFooter>
     </Sidebar>

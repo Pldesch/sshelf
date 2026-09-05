@@ -7,7 +7,8 @@ so issues, ideas, and pull requests are all welcome.
 
 - [Bun](https://bun.sh) (the package manager and runtime used by this project)
 - A working `ssh` client on your PATH, plus at least one host in your
-  `~/.ssh/config` to connect to
+  `~/.ssh/config` to connect to; or a POSIX development host for guarded local
+  transport
 
 ## Getting started
 
@@ -19,6 +20,21 @@ bun run dev
 Then open <http://localhost:3010>. On first run you pick the SSH host to connect
 to (or set `SSHELF_SSH_HOST`). The browsed remote root defaults to
 `/home/ubuntu` and can be overridden with `SSHELF_REMOTE_ROOT`.
+
+When Sshelf and the browsed files live on the same development server, bypass
+SSH explicitly:
+
+```sh
+NODE_ENV=development \
+SSHELF_TRANSPORT=local \
+SSHELF_LOCAL_ROOT=/absolute/path/to/workspace \
+bun run dev
+```
+
+This mode is server-side only and fails closed outside development. The local
+root must exist, cannot be `/`, and is kept separate from
+`SSHELF_REMOTE_ROOT` so an existing remote configuration cannot silently widen
+local filesystem access.
 
 ## Quality gates
 

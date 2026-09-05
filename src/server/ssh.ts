@@ -1,14 +1,30 @@
 import { execFile, spawn } from "node:child_process"
 import { randomUUID } from "node:crypto"
 import { readFileSync, writeFileSync } from "node:fs"
+import {
+  chmod,
+  lstat,
+  mkdir,
+  readFile,
+  rename,
+  unlink,
+  writeFile,
+} from "node:fs/promises"
 import { homedir } from "node:os"
 import { join } from "node:path"
-import { isContentRevision } from "@/server/content-revision"
+import { contentRevision, isContentRevision } from "@/server/content-revision"
 import { EDIT_CONFLICT_MARKER } from "@/lib/edit-conflict"
+import {
+  LOCAL_TARGET_ALIAS,
+  TRANSPORT_CONFIG,
+  resolveTransportPath,
+} from "@/server/transport-config"
+import type { TransportMode } from "@/server/transport-config"
 
-// The remote directory the explorer is rooted at. Override with
-// SSHELF_REMOTE_ROOT (should be an absolute path); defaults to /home/ubuntu.
-export const REMOTE_ROOT = process.env.SSHELF_REMOTE_ROOT || "/home/ubuntu"
+// The directory the explorer is rooted at. SSH mode uses SSHELF_REMOTE_ROOT;
+// guarded development-only local mode uses the required SSHELF_LOCAL_ROOT.
+export const REMOTE_ROOT = TRANSPORT_CONFIG.root
+export const TRANSPORT_MODE: TransportMode = TRANSPORT_CONFIG.mode
 
 /** Thrown (by message) when no SSH host has been chosen yet. */
 export const SETUP_REQUIRED = "SETUP_REQUIRED"
@@ -28,15 +44,25 @@ function readPersistedHost(): string | null {
   }
 }
 
-let sshHost: string | null = process.env.SSHELF_SSH_HOST || readPersistedHost()
+let sshHost: string | null =
+  TRANSPORT_MODE === "ssh"
+    ? process.env.SSHELF_SSH_HOST || readPersistedHost()
+    : null
 
 export function getCurrentHost(): string | null {
-  return sshHost
+  return TRANSPORT_MODE === "local" ? LOCAL_TARGET_ALIAS : sshHost
 }
 
 /** Switch hosts in memory — drops all caches and the circuit breaker. */
 export function setSshHost(host: string | null) {
-  sshHost = host
+  if (
+    TRANSPORT_MODE === "local" &&
+    host !== null &&
+    host !== LOCAL_TARGET_ALIAS
+  ) {
+    throw new SshError("SSH hosts cannot be selected in local transport mode")
+  }
+  if (TRANSPORT_MODE === "ssh") sshHost = host
   globalCacheGeneration++
   cache.clear()
   inFlight.clear()
@@ -46,6 +72,7 @@ export function setSshHost(host: string | null) {
 
 export function persistSshHost(host: string) {
   setSshHost(host)
+  if (TRANSPORT_MODE === "local") return
   try {
     writeFileSync(CONFIG_FILE, JSON.stringify({ sshHost: host }))
   } catch {
@@ -54,6 +81,7 @@ export function persistSshHost(host: string) {
 }
 
 export function requireHost(): string {
+  if (TRANSPORT_MODE === "local") return LOCAL_TARGET_ALIAS
   if (!sshHost) throw new SshError(SETUP_REQUIRED)
   return sshHost
 }
@@ -66,6 +94,9 @@ export interface SshConfigHost {
 
 /** Scan ~/.ssh/config for concrete (non-wildcard) host aliases. */
 export function listSshConfigHosts(): Array<SshConfigHost> {
+  if (TRANSPORT_MODE === "local") {
+    return [{ alias: LOCAL_TARGET_ALIAS, hostName: REMOTE_ROOT }]
+  }
   let text = ""
   try {
     text = readFileSync(join(homedir(), ".ssh", "config"), "utf-8")
@@ -140,22 +171,35 @@ export function shellQuote(value: string): string {
  * escape it (no `..`, no absolute paths outside the root).
  */
 export function resolveRemotePath(relativePath: string): string {
-  const segments = relativePath
-    .split("/")
-    .filter((segment) => segment !== "" && segment !== ".")
-  if (segments.some((segment) => segment === "..")) {
+  try {
+    return resolveTransportPath(relativePath, TRANSPORT_CONFIG)
+  } catch {
     throw new SshError("Invalid path")
   }
-  const joined = segments.join("/")
-  return joined ? `${REMOTE_ROOT}/${joined}` : REMOTE_ROOT
+}
+
+function commandTarget(command: string): {
+  executable: string
+  args: Array<string>
+  cwd?: string
+} {
+  if (TRANSPORT_MODE === "local") {
+    return { executable: "/bin/sh", args: ["-c", command], cwd: REMOTE_ROOT }
+  }
+  return {
+    executable: "ssh",
+    args: [...SSH_BASE_ARGS, requireHost(), command],
+  }
 }
 
 function execRemote(command: string): Promise<Buffer> {
   return new Promise((resolve, reject) => {
+    const target = commandTarget(command)
     execFile(
-      "ssh",
-      [...SSH_BASE_ARGS, requireHost(), command],
+      target.executable,
+      target.args,
       {
+        cwd: target.cwd,
         encoding: "buffer",
         maxBuffer: MAX_OUTPUT_BYTES,
         timeout: COMMAND_TIMEOUT_MS,
@@ -168,7 +212,8 @@ function execRemote(command: string): Promise<Buffer> {
           // ssh exits with 255 on connection/auth failure; anything else
           // is the remote command's own exit code (e.g. file not found).
           const connectionFailure =
-            timedOut || (error as { code?: number | string }).code === 255
+            TRANSPORT_MODE === "ssh" &&
+            (timedOut || (error as { code?: number | string }).code === 255)
           reject(
             new SshError(
               timedOut
@@ -191,6 +236,9 @@ let downUntil = 0
 
 /** Run a remote command, retrying once on failure (drops a dead tunnel). */
 export async function runRemoteRaw(command: string): Promise<Buffer> {
+  // Local commands do not represent a connection and must not engage the SSH
+  // retry/circuit-breaker behavior.
+  if (TRANSPORT_MODE === "local") return execRemote(command)
   if (Date.now() < downUntil) {
     throw new SshError("The server is unreachable", true)
   }
@@ -238,7 +286,9 @@ export function streamRemoteFile(
         controller.close()
         return
       }
-      const process = spawn("ssh", [...SSH_BASE_ARGS, requireHost(), command], {
+      const target = commandTarget(command)
+      const process = spawn(target.executable, target.args, {
+        cwd: target.cwd,
         stdio: ["ignore", "pipe", "pipe"],
       })
       child = process
@@ -253,7 +303,7 @@ export function streamRemoteFile(
         if (closed) return
         closed = true
         signal?.removeEventListener("abort", abort)
-        controller.error(new SshError(error.message, true))
+        controller.error(new SshError(error.message, TRANSPORT_MODE === "ssh"))
       })
       process.on("close", (code) => {
         if (closed) return
@@ -268,7 +318,7 @@ export function streamRemoteFile(
           controller.error(
             new SshError(
               detail || "Could not read the remote file",
-              code === 255
+              TRANSPORT_MODE === "ssh" && code === 255
             )
           )
         }
@@ -287,7 +337,9 @@ export function streamRemoteFile(
  */
 function execRemoteStdin(command: string, input: Buffer): Promise<void> {
   return new Promise((resolve, reject) => {
-    const child = spawn("ssh", [...SSH_BASE_ARGS, requireHost(), command], {
+    const target = commandTarget(command)
+    const child = spawn(target.executable, target.args, {
+      cwd: target.cwd,
       stdio: ["pipe", "ignore", "pipe"],
     })
     const stderr: Array<Buffer> = []
@@ -301,13 +353,23 @@ function execRemoteStdin(command: string, input: Buffer): Promise<void> {
     }
     const timer = setTimeout(() => {
       child.kill("SIGKILL")
-      finish(new SshError("The server took too long to answer", true))
+      finish(
+        new SshError(
+          "The server took too long to answer",
+          TRANSPORT_MODE === "ssh"
+        )
+      )
     }, COMMAND_TIMEOUT_MS)
     child.stderr.on("data", (chunk) => stderr.push(chunk))
     // The remote may close stdin early (e.g. on error) — ignore the EPIPE.
     child.stdin.on("error", () => {})
     child.on("error", (error) =>
-      finish(new SshError(error.message || "Could not reach the server", true))
+      finish(
+        new SshError(
+          error.message || "Could not reach the server",
+          TRANSPORT_MODE === "ssh"
+        )
+      )
     )
     child.on("close", (code, signal) => {
       if (code === 0) {
@@ -315,7 +377,8 @@ function execRemoteStdin(command: string, input: Buffer): Promise<void> {
         return
       }
       const detail = Buffer.concat(stderr).toString("utf-8").trim()
-      const connectionFailure = signal === "SIGKILL" || code === 255
+      const connectionFailure =
+        TRANSPORT_MODE === "ssh" && (signal === "SIGKILL" || code === 255)
       finish(
         new SshError(detail || "Could not reach the server", connectionFailure)
       )
@@ -349,6 +412,56 @@ function withRemoteFileWrite<T>(
   return run
 }
 
+function isErrnoException(
+  error: unknown,
+  code: string
+): error is NodeJS.ErrnoException {
+  return error instanceof Error && "code" in error && error.code === code
+}
+
+/** Atomic local-mode equivalent of the SSH stdin + temporary-file write. */
+async function writeLocalFile(
+  relativePath: string,
+  content: Buffer,
+  expectedRevision?: string
+): Promise<void> {
+  const absolute = resolveRemotePath(relativePath)
+  const slash = absolute.lastIndexOf("/")
+  const parent = slash > 0 ? absolute.slice(0, slash) : REMOTE_ROOT
+  const temporary = `${parent}/.sshelf-${randomUUID()}.tmp`
+
+  await mkdir(parent, { recursive: true })
+  try {
+    let existing: Awaited<ReturnType<typeof lstat>> | null = null
+    try {
+      existing = await lstat(absolute)
+    } catch (error) {
+      if (!isErrnoException(error, "ENOENT")) throw error
+    }
+    if (existing?.isDirectory()) {
+      throw new SshError("A folder exists at that path")
+    }
+
+    if (expectedRevision) {
+      if (!existing?.isFile()) throw new SshError(EDIT_CONFLICT_MARKER)
+      const current = await readFile(absolute)
+      if (contentRevision(current) !== expectedRevision) {
+        throw new SshError(EDIT_CONFLICT_MARKER)
+      }
+    }
+
+    await writeFile(temporary, content, { flag: "wx" })
+    if (existing?.isFile()) await chmod(temporary, existing.mode)
+    await rename(temporary, absolute)
+  } finally {
+    try {
+      await unlink(temporary)
+    } catch {
+      // Best-effort cleanup. Preserve the original write/conflict error.
+    }
+  }
+}
+
 /** Create a directory (and any missing parents) on the remote. */
 export async function makeRemoteDir(relativePath: string): Promise<void> {
   const absolute = resolveRemotePath(relativePath)
@@ -362,6 +475,14 @@ export async function writeRemoteFile(
   relativePath: string,
   content: Buffer
 ): Promise<void> {
+  if (TRANSPORT_MODE === "local") {
+    await withRemoteFileWrite(relativePath, () =>
+      writeLocalFile(relativePath, content)
+    )
+    invalidateRemotePath(relativePath)
+    markRemoteMutation()
+    return
+  }
   const absolute = resolveRemotePath(relativePath)
   const slash = absolute.lastIndexOf("/")
   const parent = slash > 0 ? absolute.slice(0, slash) : REMOTE_ROOT
@@ -394,6 +515,14 @@ export async function writeRemoteFileIfRevision(
 ): Promise<void> {
   if (!isContentRevision(expectedRevision)) {
     throw new SshError("Invalid content revision")
+  }
+  if (TRANSPORT_MODE === "local") {
+    await withRemoteFileWrite(relativePath, () =>
+      writeLocalFile(relativePath, content, expectedRevision)
+    )
+    invalidateRemotePath(relativePath)
+    markRemoteMutation()
+    return
   }
   const absolute = resolveRemotePath(relativePath)
   const slash = absolute.lastIndexOf("/")

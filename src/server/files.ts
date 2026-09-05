@@ -2,6 +2,7 @@ import { createServerFn } from "@tanstack/react-start"
 import { randomUUID } from "node:crypto"
 import {
   REMOTE_ROOT,
+  TRANSPORT_MODE,
   SshError,
   fetchTree,
   findEntry,
@@ -29,6 +30,7 @@ import {
   resolveHtmlCompanionPath,
 } from "@/lib/html-file-bridge"
 import type { RemoteEntry, SearchResult, SshConfigHost } from "@/server/ssh"
+import type { TransportMode } from "@/server/transport-config"
 
 const MAX_TEXT_BYTES = 4 * 1024 * 1024
 
@@ -60,6 +62,7 @@ export interface TreeResult {
   host: string | null
   /** Absolute remote root the entries are relative to (display use). */
   root: string
+  transport: TransportMode
 }
 
 export const getTree = createServerFn().handler(
@@ -70,6 +73,7 @@ export const getTree = createServerFn().handler(
       stale: tree.stale,
       host: getCurrentHost(),
       root: REMOTE_ROOT,
+      transport: TRANSPORT_MODE,
     }
   }
 )
