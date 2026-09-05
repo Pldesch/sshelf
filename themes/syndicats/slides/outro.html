@@ -1,0 +1,69 @@
+<section
+  id="thank-you"
+  class="on-purple"
+  data-background-color="#5b24b9"
+  style="justify-content: center; align-items: center"
+>
+  <img
+    src="{{companyImg}}"
+    alt="Syndicats"
+    style="
+      position: absolute;
+      top: var(--slide-padding-top);
+      left: var(--slide-padding);
+      height: 101px;
+      width: 282px;
+      object-fit: cover;
+      object-position: center;
+    "
+  />
+  <div style="display: flex; align-items: center; gap: 72px">
+    <div style="display: flex; flex-direction: column; align-items: flex-start; gap: 30px">
+      <h1 style="font-size: 96pt; line-height: 1; margin: 0; color: var(--secondary-color)">
+        Danke!
+      </h1>
+      <div style="display: flex; gap: 16px">
+        <p class="pill" style="margin: 0; color: #000019">
+          <i class="fa-solid fa-globe"></i>{{url1}}
+        </p>
+        <p class="pill" style="margin: 0; color: #000019">
+          <i class="fa-solid fa-globe"></i>{{url2}}
+        </p>
+      </div>
+    </div>
+    <div
+      style="
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 14px;
+        background: #ffffff;
+        border-radius: var(--box-radius);
+        padding: 22px;
+        box-shadow: 0 18px 50px rgba(0, 0, 25, 0.28);
+      "
+    >
+      <img
+        src="{{qrCodeImg}}"
+        alt="LinkedIn QR-Code – Kai Lehmann"
+        style="display: block; width: 194px; height: 198px"
+      />
+      <p
+        style="
+          margin: 0;
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          font-family: var(--mono-font);
+          font-size: 12pt;
+          font-weight: 600;
+          text-transform: uppercase;
+          letter-spacing: 0.12em;
+          color: var(--primary-color);
+        "
+      >
+        <i class="fa-brands fa-linkedin" style="font-size: 17pt; color: #0a66c2"></i>{{qrCodeTitle}}
+      </p>
+    </div>
+  </div>
+</section>

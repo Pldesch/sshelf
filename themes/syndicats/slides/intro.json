@@ -1,0 +1,36 @@
+{
+  "slug": "intro",
+  "name": "Intro",
+  "placeholders": [
+    {
+      "key": "headline",
+      "label": "Headline (line 1)",
+      "default": "Das Ende von",
+      "type": "text"
+    },
+    {
+      "key": "accent",
+      "label": "Accent word",
+      "default": "Software",
+      "type": "text"
+    },
+    {
+      "key": "event",
+      "label": "Event",
+      "default": "Perspectives Festival",
+      "type": "text"
+    },
+    {
+      "key": "speaker",
+      "label": "Speaker",
+      "default": "Kai Lehmann, Syndicats eG",
+      "type": "text"
+    },
+    {
+      "key": "logo",
+      "label": "Logo",
+      "default": "assets/syndicats_logo.png",
+      "type": "image"
+    }
+  ]
+}

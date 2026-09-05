@@ -1,0 +1,22 @@
+{
+  "name": "estradeck",
+  "version": "0.1.0",
+  "description": "Estradeck — an open-source presentation studio for reveal.js, by Syndicats.",
+  "license": "MIT",
+  "private": true,
+  "workspaces": [
+    "shared",
+    "server",
+    "client"
+  ],
+  "scripts": {
+    "dev": "concurrently -n server,client -c blue,magenta \"npm:dev:server\" \"npm:dev:client\"",
+    "dev:server": "npm run dev --workspace @studio/server",
+    "dev:client": "npm run dev --workspace @studio/client",
+    "build": "npm run build --workspace @studio/client",
+    "typecheck": "npm run typecheck --workspace @studio/server && npm run typecheck --workspace @studio/client"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2"
+  }
+}

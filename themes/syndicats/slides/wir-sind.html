@@ -1,0 +1,418 @@
+<section id="we-are-syndicats" class="on-pink" data-background-color="#fea9c6" data-transition-speed="slow"><style>
+  #we-are-syndicats .wsyn-head {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 40px;
+    flex-shrink: 0;
+  }
+  #we-are-syndicats .wsyn-title { font-size: 48pt; margin: 4px 0 0; line-height: 1.0; }
+  #we-are-syndicats .wsyn-title .accent { color: var(--secondary-color); }
+  #we-are-syndicats .wsyn-sub {
+    max-width: 360px;
+    font-size: 13.5pt;
+    line-height: 1.5;
+    margin: 0 0 6px;
+    color: rgba(255, 255, 255, 0.72);
+    text-align: right;
+  }
+
+  #we-are-syndicats .wsyn-pit-wrap {
+    flex: 1;
+    min-height: 0;
+    margin-top: 22px;
+    opacity: 0;
+    transform: translateY(40px);
+    pointer-events: none;
+    transition: opacity 2.8s ease, transform 2.8s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  #we-are-syndicats .wsyn-pit-wrap.is-visible {
+    opacity: 1;
+    transform: translateY(0);
+    pointer-events: auto;
+  }
+
+  #we-are-syndicats .wsyn-pit {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    min-height: 0;
+    border-radius: 26px;
+    overflow: hidden;
+    background:
+      radial-gradient(120% 90% at 50% 0%, #8b54ff 0%, #7a3cf6 46%, #6a2fe0 100%);
+    box-shadow:
+      inset 0 2px 0 rgba(255, 255, 255, 0.25),
+      inset 0 -30px 60px rgba(0, 0, 25, 0.28),
+      0 22px 60px rgba(0, 0, 25, 0.32);
+    cursor: grab;
+    touch-action: none;
+  }
+  #we-are-syndicats .wsyn-pit.is-grabbing { cursor: grabbing; }
+
+  #we-are-syndicats .wsyn-logo {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: min(72vw, 1120px);
+    max-width: 1120px;
+    transform: translate(-50%, -50%);
+    z-index: 10;
+    pointer-events: none;
+    filter:
+      drop-shadow(0 0 14px rgba(254, 169, 198, 0.75))
+      drop-shadow(0 0 30px rgba(122, 60, 246, 0.55))
+      drop-shadow(0 16px 30px rgba(0, 0, 25, 0.28));
+    animation: wsynGlowPulse 3.4s ease-in-out infinite;
+    will-change: filter, opacity;
+  }
+
+  #we-are-syndicats .wsyn-logo::before,
+  #we-are-syndicats .wsyn-logo::after {
+    content: "";
+    position: absolute;
+    inset: -18%;
+    border-radius: 50%;
+    pointer-events: none;
+  }
+
+  #we-are-syndicats .wsyn-logo::before {
+    background: radial-gradient(circle at center,
+      rgba(254, 169, 198, 0.40) 0%,
+      rgba(254, 169, 198, 0.22) 26%,
+      rgba(122, 60, 246, 0.10) 48%,
+      rgba(122, 60, 246, 0.00) 72%);
+    filter: blur(18px);
+    animation: wsynGlowHalo 3.4s ease-in-out infinite;
+    z-index: -2;
+  }
+
+  #we-are-syndicats .wsyn-logo::after {
+    background: radial-gradient(circle at center,
+      rgba(255, 255, 255, 0.22) 0%,
+      rgba(255, 255, 255, 0.12) 20%,
+      rgba(255, 255, 255, 0.00) 58%);
+    filter: blur(10px);
+    animation: wsynGlowSpark 2.6s ease-in-out infinite;
+    z-index: -1;
+  }
+
+  #we-are-syndicats .wsyn-ball {
+    position: absolute;
+    top: 0;
+    left: 0;
+    border-radius: 50%;
+    will-change: transform, filter;
+    background-size: cover;
+    background-position: center 18%;
+    background-repeat: no-repeat;
+    box-shadow:
+      0 0 0 1px rgba(255, 255, 255, 0.18),
+      0 0 24px rgba(254, 169, 198, 0.30),
+      0 0 46px rgba(122, 60, 246, 0.28),
+      0 14px 30px rgba(0, 0, 25, 0.34);
+    outline: none;
+    border: 0;
+    animation: wsynBallGlow 3.8s ease-in-out infinite;
+  }
+  #we-are-syndicats .wsyn-ball.face {
+    background-color: #5b24b9;
+    border: 0;
+    box-shadow:
+      0 0 0 1px rgba(255, 255, 255, 0.18),
+      0 0 24px rgba(254, 169, 198, 0.30),
+      0 0 46px rgba(122, 60, 246, 0.28),
+      0 14px 30px rgba(0, 0, 25, 0.34);
+  }
+  #we-are-syndicats .wsyn-ball.hot {
+    filter: brightness(1.06) saturate(1.08);
+  }
+
+  #we-are-syndicats .wsyn-name {
+    position: absolute;
+    top: 16px;
+    left: 50%;
+    transform: translateX(-50%) translateY(-8px);
+    background: #ffffff;
+    color: var(--primary-color);
+    font-family: var(--mono-font);
+    font-weight: 700;
+    font-size: 12.5pt;
+    letter-spacing: 0.02em;
+    padding: 8px 20px;
+    border-radius: 999px;
+    box-shadow: 0 10px 24px rgba(0, 0, 25, 0.3);
+    opacity: 0;
+    transition: opacity 0.2s ease, transform 0.2s ease;
+    pointer-events: none;
+    z-index: 50;
+    white-space: nowrap;
+  }
+  #we-are-syndicats .wsyn-name.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+  @keyframes wsynGlowPulse {
+    0%, 100% {
+      transform: translate(-50%, -50%);
+      filter:
+        drop-shadow(0 0 14px rgba(254, 169, 198, 0.65))
+        drop-shadow(0 0 28px rgba(122, 60, 246, 0.50))
+        drop-shadow(0 16px 30px rgba(0, 0, 25, 0.28));
+      opacity: 0.96;
+    }
+    50% {
+      transform: translate(-50%, -50%);
+      filter:
+        drop-shadow(0 0 22px rgba(254, 169, 198, 0.95))
+        drop-shadow(0 0 44px rgba(122, 60, 246, 0.72))
+        drop-shadow(0 18px 36px rgba(0, 0, 25, 0.34));
+      opacity: 1;
+    }
+  }
+
+  @keyframes wsynGlowHalo {
+    0%, 100% {
+      opacity: 0.55;
+      transform: scale(0.96);
+    }
+    50% {
+      opacity: 0.92;
+      transform: scale(1.08);
+    }
+  }
+
+  @keyframes wsynGlowSpark {
+    0%, 100% {
+      opacity: 0.25;
+      transform: scale(0.92);
+    }
+    50% {
+      opacity: 0.55;
+      transform: scale(1.04);
+    }
+  }
+
+  @keyframes wsynBallGlow {
+    0%, 100% {
+      box-shadow:
+        0 0 0 1px rgba(255, 255, 255, 0.16),
+        0 0 22px rgba(254, 169, 198, 0.26),
+        0 0 40px rgba(122, 60, 246, 0.24),
+        0 14px 30px rgba(0, 0, 25, 0.32);
+    }
+    50% {
+      box-shadow:
+        0 0 0 1px rgba(255, 255, 255, 0.22),
+        0 0 32px rgba(254, 169, 198, 0.44),
+        0 0 56px rgba(122, 60, 246, 0.34),
+        0 16px 34px rgba(0, 0, 25, 0.36);
+    }
+  }
+</style>
+
+<div class="wsyn-head">
+  <div>
+    <h1 class="wsyn-title">Wir sind</h1>
+  </div>
+</div>
+
+<div class="wsyn-pit-wrap fragment rise" data-fragment-index="0" aria-label="Das Syndicats-Team als interaktiver Ball-Pool">
+  <div class="wsyn-pit">
+    <p class="wsyn-name"></p>
+    <img class="wsyn-logo" src="assets/syndicats_logo.png" alt="Syndicats Logo" style="width:min(72vw, 1120px); max-width:1120px; z-index:0;">
+  </div>
+</div>
+
+<script>
+(function () {
+  function init() {
+    var section = document.getElementById('we-are-syndicats');
+    if (!section || section.dataset.wsynInit) return;
+    var pitWrap = section.querySelector('.wsyn-pit-wrap');
+    var pit = section.querySelector('.wsyn-pit');
+    if (!pitWrap || !pit) return;
+    section.dataset.wsynInit = '1';
+
+    function syncVisibility() {
+      var visible = pitWrap.classList.contains('present') && pitWrap.classList.contains('current') && !pitWrap.classList.contains('faded');
+      if (!visible) visible = pitWrap.classList.contains('visible') || pitWrap.classList.contains('current-fragment') || pitWrap.classList.contains('active');
+      pitWrap.classList.toggle('is-visible', visible);
+      if (!visible) pitWrap.classList.remove('is-grabbing');
+    }
+
+    if (window.Reveal) {
+      Reveal.on('fragmentshown', syncVisibility);
+      Reveal.on('fragmenthidden', syncVisibility);
+      Reveal.on('slidechanged', syncVisibility);
+      Reveal.on('ready', syncVisibility);
+    }
+    syncVisibility();
+
+    var BASE = 'https://syndicats.de/_astro/';
+    var FACES = [
+      { img: 'horst.CNGry3Aa.webp',  name: 'Horst Laubenthal' },
+      { img: 'kai.CqZCDR1M.webp',    name: 'Kai Lehmann' },
+      { img: 'martin.CVLR0Nvv.webp', name: 'Martin James' },
+      { img: 'matthias.B7pG6flf.webp', name: 'Matthias Grube' },
+      { img: 'nils.CHbhgLB9.webp',   name: 'Nils Foßhag' },
+      { img: 'richard.WLvsPZGb.webp', name: 'Richard Weinmann' },
+      { img: 'sonja.qudRRBVM.webp',  name: 'Sonja Dörband' },
+      { img: 'stefan.CGIjEQqS.webp', name: 'Stefan Burnicki' },
+      { img: 'stephan.CclXdoPj.webp', name: 'Stephan Baune' },
+      { img: 'yeti.BBbaTiFF.webp',   name: 'Angus McGAIver' }
+    ];
+
+    var REST = 0.96, WALL = 0.97, AIR = 0.9992,
+        MAX = 14, REPEL_R = 170, REPEL_STR = 0.26;
+
+    var nameEl = pit.querySelector('.wsyn-name');
+    var balls = [];
+
+    function rand(a, b) { return a + Math.random() * (b - a); }
+
+    FACES.forEach(function (f) {
+      var r = 78;
+      var el = document.createElement('div');
+      el.className = 'wsyn-ball face';
+      el.style.backgroundImage = 'url("' + BASE + f.img + '")';
+      el.style.width = el.style.height = (r * 2) + 'px';
+      pit.appendChild(el);
+      balls.push({ el: el, r: r, name: f.name, x: 0, y: 0, vx: 0, vy: 0, fs: rand(0.24, 0.52), hot: false });
+    });
+
+    var W = 0, H = 0, seeded = false;
+    var dragged = null, pInside = false, mx = 0, my = 0, pmx = 0, pmy = 0;
+
+    function measure() { W = pit.clientWidth; H = pit.clientHeight; }
+    measure();
+    if (window.ResizeObserver) new ResizeObserver(measure).observe(pit);
+    window.addEventListener('resize', measure);
+
+    function seed() {
+      for (var i = 0; i < balls.length; i++) {
+        var b = balls[i];
+        b.x = rand(b.r, W - b.r);
+        b.y = rand(b.r, H - b.r);
+        var a = rand(0, 6.283);
+        b.vx = Math.cos(a) * b.fs;
+        b.vy = Math.sin(a) * b.fs;
+      }
+      seeded = true;
+    }
+
+    function toWorld(e) {
+      var rect = pit.getBoundingClientRect();
+      var sx = rect.width / (W || 1), sy = rect.height / (H || 1);
+      mx = (e.clientX - rect.left) / (sx || 1);
+      my = (e.clientY - rect.top) / (sy || 1);
+    }
+
+    pit.addEventListener('pointermove', function (e) {
+      pmx = mx; pmy = my; toWorld(e); pInside = true;
+      if (dragged) {
+        dragged.x = mx; dragged.y = my;
+        dragged.vx = Math.max(-MAX, Math.min(MAX, mx - pmx));
+        dragged.vy = Math.max(-MAX, Math.min(MAX, my - pmy));
+      }
+    });
+    pit.addEventListener('pointerleave', function () { pInside = false; dragged = null; pit.classList.remove('is-grabbing'); });
+    pit.addEventListener('pointerdown', function (e) {
+      toWorld(e);
+      for (var i = balls.length - 1; i >= 0; i--) {
+        var b = balls[i], dx = b.x - mx, dy = b.y - my;
+        if (dx * dx + dy * dy <= b.r * b.r) { dragged = b; pit.classList.add('is-grabbing'); pit.setPointerCapture && pit.setPointerCapture(e.pointerId); break; }
+      }
+    });
+    window.addEventListener('pointerup', function () { dragged = null; pit.classList.remove('is-grabbing'); });
+
+    function resolve(a, b) {
+      var dx = b.x - a.x, dy = b.y - a.y, min = a.r + b.r, d2 = dx * dx + dy * dy;
+      if (d2 >= min * min || d2 === 0) return;
+      var d = Math.sqrt(d2), nx = dx / d, ny = dy / d, ov = min - d;
+      var ai = (a === dragged), bi = (b === dragged);
+      if (ai && bi) return;
+      if (ai) { b.x += nx * ov; b.y += ny * ov; }
+      else if (bi) { a.x -= nx * ov; a.y -= ny * ov; }
+      else { a.x -= nx * ov * 0.5; a.y -= ny * ov * 0.5; b.x += nx * ov * 0.5; b.y += ny * ov * 0.5; }
+      var vn = (b.vx - a.vx) * nx + (b.vy - a.vy) * ny;
+      if (vn < 0) {
+        var j = -(1 + REST) * vn;
+        if (ai) { b.vx += j * nx; b.vy += j * ny; }
+        else if (bi) { a.vx -= j * nx; a.vy -= j * ny; }
+        else { j *= 0.5; a.vx -= j * nx; a.vy -= j * ny; b.vx += j * nx; b.vy += j * ny; }
+      }
+    }
+
+    function walls(b) {
+      if (b.x < b.r) { b.x = b.r; if (b.vx < 0) b.vx = -b.vx * WALL; }
+      else if (b.x > W - b.r) { b.x = W - b.r; if (b.vx > 0) b.vx = -b.vx * WALL; }
+      if (b.y < b.r) { b.y = b.r; if (b.vy < 0) b.vy = -b.vy * WALL; }
+      else if (b.y > H - b.r) { b.y = H - b.r; if (b.vy > 0) b.vy = -b.vy * WALL; }
+    }
+
+    function step() {
+      var i, j, b;
+      for (i = 0; i < balls.length; i++) {
+        b = balls[i];
+        if (b === dragged) continue;
+        b.vx += rand(-0.008, 0.008);
+        b.vy += rand(-0.008, 0.008);
+        if (pInside) {
+          var dx = b.x - mx, dy = b.y - my, d = Math.sqrt(dx * dx + dy * dy);
+          if (d < REPEL_R && d > 0.01) { var f = (1 - d / REPEL_R) * REPEL_STR; b.vx += (dx / d) * f; b.vy += (dy / d) * f; }
+        }
+        b.vx *= AIR; b.vy *= AIR;
+        var sp = Math.sqrt(b.vx * b.vx + b.vy * b.vy);
+        if (sp > MAX) { b.vx *= MAX / sp; b.vy *= MAX / sp; }
+        else if (sp < b.fs) {
+          if (sp < 0.001) { var a = rand(0, 6.283); b.vx = Math.cos(a) * b.fs; b.vy = Math.sin(a) * b.fs; }
+          else { var k = b.fs / sp; b.vx *= k; b.vy *= k; }
+        }
+        b.x += b.vx; b.y += b.vy;
+      }
+      for (var it = 0; it < 4; it++) {
+        for (i = 0; i < balls.length; i++) for (j = i + 1; j < balls.length; j++) resolve(balls[i], balls[j]);
+        for (i = 0; i < balls.length; i++) walls(balls[i]);
+      }
+    }
+
+    function hover() {
+      if (!pInside) { setName(null); return; }
+      var top = null;
+      for (var i = 0; i < balls.length; i++) {
+        var b = balls[i], dx = b.x - mx, dy = b.y - my;
+        b.hot = false;
+        if (b.name && dx * dx + dy * dy <= b.r * b.r) top = b;
+      }
+      if (top) { top.hot = true; setName(top.name); } else setName(null);
+    }
+    function setName(n) {
+      if (n) { nameEl.textContent = n; nameEl.classList.add('show'); }
+      else nameEl.classList.remove('show');
+    }
+
+    function render() {
+      for (var i = 0; i < balls.length; i++) {
+        var b = balls[i];
+        b.el.style.transform = 'translate(' + (b.x - b.r) + 'px,' + (b.y - b.r) + 'px) scale(' + (b.hot ? 1.1 : 1) + ')';
+        b.el.style.zIndex = b.hot ? 30 : '';
+      }
+    }
+
+    function loop() {
+      syncVisibility();
+      measure();
+      if (W > 0 && H > 0 && pitWrap.classList.contains('is-visible')) {
+        if (!seeded) seed();
+        step();
+        hover();
+        render();
+      }
+      requestAnimationFrame(loop);
+    }
+    requestAnimationFrame(loop);
+  }
+
+  if (document.readyState !== 'loading') init();
+  else document.addEventListener('DOMContentLoaded', init);
+})();
+</script></section>

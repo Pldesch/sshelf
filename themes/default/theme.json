@@ -1,0 +1,8 @@
+{
+  "id": "default",
+  "name": "Default",
+  "description": "A clean, brand-neutral palette — IBM Plex with a blue/teal/slate scheme. A good starting point for any deck.",
+  "fontImport": "https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap",
+  "createdAt": 1782578000000,
+  "updatedAt": 1782578000000
+}

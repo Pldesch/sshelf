@@ -1,0 +1,27 @@
+/* Theme: Syndicats — managed by Estradeck.
+ * Palette + fonts. Decks using this theme inherit these via a managed :root
+ * block in their styles.css; deck-level :root values override them.
+ */
+
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
+
+:root {
+  --primary-color: #5b24b9;
+  --secondary-color: #fea9c6;
+  --accent-purple: #7a3cf6;
+  --ink: #000019;
+  --background-color: #7a3cf6;
+  --section-divider-bg: #5b24b9;
+  --text-color: #000019;
+  --muted-color: rgba(0, 0, 25, 0.5);
+  --line-color: rgba(0, 0, 25, 0.2);
+  --heading-font: "IBM Plex Sans", Helvetica, sans-serif;
+  --body-font: "IBM Plex Sans", Helvetica, sans-serif;
+  --mono-font: "IBM Plex Mono", monospace;
+  --base-font-size: 32px;
+  --text-size: 16pt;
+  --h1-size: 48pt;
+  --h2-size: 36pt;
+  --h3-size: 24pt;
+  --footnote-size: 11pt;
+}

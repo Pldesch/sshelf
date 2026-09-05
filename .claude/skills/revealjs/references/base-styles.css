@@ -1,0 +1,599 @@
+/* Base reveal.js styles — neutral default theme.
+ *
+ * Copy this file as styles.css for each new presentation.
+ * Ships a clean, brand-neutral look: IBM Plex Sans/Mono with a blue/teal/slate
+ * palette. Customize the CSS variables below, or apply a theme.
+ *
+ * IMPORTANT: All font sizes use pt (points) for predictable sizing.
+ * Base text is intentionally small (16pt) to fit content-heavy slides.
+ * Use .text-lg, .text-xl, etc. classes when slides have less content.
+ */
+
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
+
+/* ===========================================
+   CSS VARIABLES - Customize these for each presentation
+   =========================================== */
+:root {
+  /* ===========================================
+     BACKGROUND COLORS
+     Light mode by default. For dark mode, set --background-color and
+     --section-divider-bg to a dark color (e.g. #0f172a), switch --text-color
+     to #ffffff and --muted-color to rgba(255, 255, 255, 0.6) below.
+     =========================================== */
+  --background-color: #ffffff;              /* Main slide background */
+  --section-divider-bg: #0f172a;            /* Section divider background (dark slate) */
+
+  /* Typography — IBM Plex Sans/Mono (open fonts). ALWAYS use pt for font sizes */
+  --heading-font: "IBM Plex Sans", Helvetica, sans-serif;
+  --body-font: "IBM Plex Sans", Helvetica, sans-serif;
+  --mono-font: "IBM Plex Mono", monospace;  /* Eyebrow labels, code, captions */
+  --base-font-size: 32px;   /* Only px value - sets reveal.js base */
+  --text-size: 16pt;        /* Base body text - intentionally small */
+  --h1-size: 48pt;
+  --h2-size: 36pt;
+  --h3-size: 24pt;
+  --footnote-size: 11pt;
+
+  /* Colors — neutral default scheme (swap these for your own palette) */
+  --primary-color: #2563eb;             /* Primary accent (blue) */
+  --secondary-color: #14b8a6;           /* Secondary accent (teal) */
+  --accent-purple: #3b82f6;             /* Tertiary accent / gradient pair (light blue) */
+  --ink: #0f172a;                       /* Near-black slate - dark surfaces */
+  --text-color: #0f172a;                /* Main text - use #ffffff for dark backgrounds */
+  --muted-color: rgba(15, 23, 42, 0.55);/* Secondary text - use rgba(255,255,255,0.6) on dark */
+  --line-color: rgba(15, 23, 42, 0.16); /* Decorative lines */
+
+  /* Layout */
+  --slide-padding: 60px;
+  --slide-padding-top: 40px;
+  --content-gap: 30px;
+
+  /* Border radius for custom components */
+  --box-radius: 14px;          /* Generous rounding by default; set to 0 for sharp corners */
+}
+
+/* ===========================================
+   BASE STYLES - Override reveal.js defaults
+   =========================================== */
+
+.reveal {
+  font-family: var(--body-font);
+  font-size: var(--base-font-size);
+}
+
+/* Restore bold after reset.css strips it with font: inherit */
+.reveal strong,
+.reveal b {
+  font-weight: bold;
+}
+
+/* Apply background colors */
+.reveal-viewport {
+  background-color: var(--background-color);
+}
+
+/* Hide reveal's built-in nav arrows in every presentation — navigate with the
+   arrow keys, space, or by clicking. */
+.reveal .controls {
+  display: none !important;
+}
+
+/* Section divider background via data-state */
+.reveal-viewport.is-section-divider .slide-background.present {
+  background-color: var(--section-divider-bg) !important;
+}
+
+.reveal h1,
+.reveal h2,
+.reveal h3,
+.reveal h4,
+.reveal h5,
+.reveal h6 {
+  font-family: var(--heading-font);
+  text-transform: none;
+  color: var(--text-color);
+  font-weight: 700;   /* Headings are heavy/bold */
+  line-height: 1.15;
+}
+
+.reveal h1 { font-size: var(--h1-size); }
+.reveal h2 { font-size: var(--h2-size); margin-bottom: 0; }
+.reveal h3 { font-size: var(--h3-size); }
+
+.reveal p,
+.reveal li,
+.reveal td,
+.reveal th,
+.reveal blockquote {
+  font-size: var(--text-size);
+  color: var(--text-color);
+  line-height: 1.5;
+}
+
+/* ===========================================
+   LISTS
+   =========================================== */
+
+.reveal ul {
+  list-style: none;
+  padding-left: 0;
+  margin: 15px 0;
+}
+
+.reveal ul li {
+  position: relative;
+  padding-left: 25px;
+  margin-bottom: 10px;
+}
+
+.reveal ul li::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0.6em;
+  width: 8px;
+  height: 8px;
+  background: var(--text-color);
+  border-radius: 50%;
+}
+
+.reveal ul ul li::before {
+  background: var(--muted-color);
+  width: 6px;
+  height: 6px;
+}
+
+/* Prevent double-sizing for nested elements */
+.reveal blockquote p {
+  font-size: inherit;
+}
+
+/* ===========================================
+   SLIDE LAYOUT
+   =========================================== */
+
+.reveal .slides section {
+  height: 100%;
+  display: flex !important;
+  flex-direction: column !important;
+  padding: var(--slide-padding-top) var(--slide-padding) var(--slide-padding) var(--slide-padding) !important;
+  box-sizing: border-box;
+  text-align: left;
+}
+
+/* Vertical stack wrapper - no padding, just pass through */
+.reveal .slides section.stack {
+  padding: 0 !important;
+}
+
+/* Content area - fills remaining space */
+.reveal .slides section > .content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  padding-top: var(--content-gap);
+  text-align: left;
+}
+
+/* Footnotes at bottom */
+.reveal .slides section > .footnote {
+  position: absolute;
+  bottom: 15px;
+  left: var(--slide-padding);
+  right: var(--slide-padding);
+  font-size: var(--footnote-size);
+  color: var(--muted-color);
+}
+
+/* ===========================================
+   SECTION DIVIDERS - Centered title slides
+   =========================================== */
+
+.reveal .slides section.section-divider {
+  display: flex !important;
+  flex-direction: column !important;
+  justify-content: center !important;
+  align-items: center !important;
+  text-align: center;
+}
+
+.reveal .slides section.section-divider h1 {
+  font-size: 60pt;
+  text-align: center;
+  /* Dividers sit on the dark --section-divider-bg, so the headline uses the accent */
+  color: var(--secondary-color);
+}
+
+.reveal .slides section.section-divider p {
+  font-size: 20pt;
+  color: rgba(255, 255, 255, 0.8);
+}
+
+/* ===========================================
+   TEXT SIZE UTILITIES
+
+   Base text is 16pt - use these to scale UP when
+   slides have less content and you want to fill space.
+   =========================================== */
+
+.text-lg { font-size: 18pt !important; }   /* Slightly larger */
+.text-xl { font-size: 20pt !important; }   /* Medium emphasis */
+.text-2xl { font-size: 24pt !important; }  /* Strong emphasis */
+.text-3xl { font-size: 28pt !important; }  /* Very large */
+.text-4xl { font-size: 32pt !important; }  /* Maximum body text */
+
+/* Other text utilities */
+.text-muted { color: var(--muted-color) !important; }
+.text-center { text-align: center !important; }
+.text-uppercase { text-transform: uppercase; letter-spacing: 0.1em; }
+.font-light { font-weight: 300; }
+.font-bold { font-weight: 600; }
+
+/* ===========================================
+   BLOCKQUOTES
+   =========================================== */
+
+.reveal blockquote {
+  border-left: 4px solid var(--primary-color);
+  padding-left: 20px;
+  margin: 20px 0;
+  font-style: italic;
+  background: none;
+  box-shadow: none;
+  width: 100%;
+  max-width: none;
+}
+
+.reveal blockquote cite {
+  display: block;
+  margin-top: 10px;
+  font-style: normal;
+  color: var(--muted-color);
+}
+
+/* ===========================================
+   OPTIONAL: TITLE WITH UNDERLINE
+
+   Add this to presentations where you want
+   a line under the slide title.
+   =========================================== */
+
+/*
+.reveal .slides section > h1,
+.reveal .slides section > h2 {
+  flex-shrink: 0;
+  margin: 0;
+  padding-bottom: 15px;
+  border-bottom: 2px solid var(--line-color);
+}
+*/
+
+/* ===========================================
+   OPTIONAL: DECORATIVE ELEMENTS
+   =========================================== */
+
+/* Top decorative line on all slides */
+/*
+.reveal .slides section::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: var(--primary-color);
+}
+*/
+
+/* Bottom decorative line */
+/*
+.reveal .slides section::after {
+  content: '';
+  position: absolute;
+  bottom: 40px;
+  left: var(--slide-padding);
+  right: var(--slide-padding);
+  height: 2px;
+  background: var(--line-color);
+}
+*/
+
+/* ===========================================
+   REUSABLE UTILITIES
+   Optional pieces for polished decks:
+   color-block slides, mono kicker + bold headline, pill label.
+   =========================================== */
+
+/* Mono kicker / lead-in line above a bold headline (signature lockup) */
+.kicker {
+  font-family: var(--mono-font);
+  font-size: 17pt;
+  font-weight: 500;
+  color: var(--ink);
+  margin: 0 0 8px 0;
+}
+
+/* Eyebrow - mono, uppercase, tracked out (smaller label than .kicker) */
+.eyebrow {
+  font-family: var(--mono-font);
+  font-size: 13pt;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  color: var(--primary-color);
+  margin: 0 0 18px 0;
+}
+
+/* Accent gradient text (use sparingly; flat two-tone usually reads better) */
+.gradient-text {
+  background: linear-gradient(135deg, var(--primary-color) 0%, var(--accent-purple) 45%, var(--secondary-color) 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+}
+
+/* White rounded pill - logo lockup / tag */
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  background: #ffffff;
+  color: var(--primary-color);
+  font-weight: 700;
+  border-radius: 999px;
+  padding: 12px 26px;
+  font-size: 20pt;
+  line-height: 1;
+}
+.pill i { color: var(--primary-color); }
+
+/* Thin gradient accent bar */
+.accent-bar {
+  width: 72px;
+  height: 6px;
+  border-radius: 6px;
+  background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+  margin: 0 0 26px 0;
+}
+
+/* ---- COLOR-BLOCK SLIDES ----
+   Pair each class with a matching data-background-color on the <section>:
+     <section class="on-purple" data-background-color="#7c3aed"> ... (light text)
+     <section class="on-pink"   data-background-color="#ec4899"> ... (dark text)
+     <section class="on-dark"   data-background-color="#0f172a"> ... (white text) */
+
+/* Purple background -> white body, pink accents (the "Fachkräftemangel?" look) */
+.reveal .slides section.on-purple h1,
+.reveal .slides section.on-purple h2,
+.reveal .slides section.on-purple h3,
+.reveal .slides section.on-purple p,
+.reveal .slides section.on-purple li { color: #ffffff; }
+.reveal .slides section.on-purple .kicker { color: rgba(255, 255, 255, 0.8); }
+.reveal .slides section.on-purple .text-muted { color: rgba(255, 255, 255, 0.65) !important; }
+.reveal .slides section.on-purple .footnote { color: rgba(255, 255, 255, 0.55); }
+.reveal .slides section.on-purple ul li::before { background: var(--secondary-color); }
+
+/* Pink background -> ink body, purple headings (the "für große Aufgaben." look) */
+.reveal .slides section.on-pink h1,
+.reveal .slides section.on-pink h2,
+.reveal .slides section.on-pink h3 { color: var(--primary-color); }
+.reveal .slides section.on-pink p,
+.reveal .slides section.on-pink li { color: var(--ink); }
+.reveal .slides section.on-pink .kicker { color: var(--ink); }
+.reveal .slides section.on-pink .text-muted { color: rgba(0, 0, 25, 0.6) !important; }
+.reveal .slides section.on-pink .footnote { color: rgba(0, 0, 25, 0.55); }
+.reveal .slides section.on-pink ul li::before { background: var(--primary-color); }
+
+/* Ink background -> white body, pink accents */
+.reveal .slides section.on-dark h1,
+.reveal .slides section.on-dark h2,
+.reveal .slides section.on-dark h3,
+.reveal .slides section.on-dark p,
+.reveal .slides section.on-dark li { color: #ffffff; }
+.reveal .slides section.on-dark .kicker { color: rgba(255, 255, 255, 0.8); }
+.reveal .slides section.on-dark .text-muted { color: rgba(255, 255, 255, 0.62) !important; }
+.reveal .slides section.on-dark .footnote { color: rgba(255, 255, 255, 0.5); }
+.reveal .slides section.on-dark ul li::before { background: var(--secondary-color); }
+
+/* ===========================================
+   TWEET / SOCIAL CARD
+   Faithful preview of a real tweet. See references/tweet-embeds.md
+   for the data-fetch workflow + HTML template.
+   =========================================== */
+.tweet-card {
+  position: relative;
+  width: 100%;
+  max-width: 720px;
+  background: #ffffff;
+  border: 1px solid rgba(0, 0, 25, 0.1);
+  border-radius: 18px;
+  box-shadow: 0 18px 50px rgba(0, 0, 25, 0.12);
+  padding: 30px 36px 24px;
+  overflow: hidden;
+}
+/* Accent gradient strip along the top of the card */
+.tweet-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 5px;
+  background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+}
+.tweet-head {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 18px;
+}
+.tweet-avatar {
+  width: 54px; height: 54px;
+  border-radius: 50%;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+.tweet-name {
+  font-size: 17pt;
+  font-weight: 700;
+  color: var(--ink);
+  margin: 0;
+  line-height: 1.2;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.tweet-badge { color: #1d9bf0; font-size: 14pt; }   /* blue verified check */
+.tweet-handle {
+  font-size: 14pt;
+  color: var(--muted-color);
+  margin: 2px 0 0;
+}
+.tweet-logo {
+  font-size: 22pt;
+  color: var(--ink);
+  margin-left: auto;
+  align-self: flex-start;
+}
+.tweet-body {
+  font-size: 18pt;
+  line-height: 1.5;
+  color: var(--ink);
+  margin: 0 0 14px;
+}
+.tweet-meta {
+  font-size: 12.5pt;
+  color: var(--muted-color);
+  margin: 18px 0 0;
+}
+.tweet-stats {
+  display: flex;
+  align-items: center;
+  gap: 40px;
+  margin-top: 14px;
+  padding-top: 16px;
+  border-top: 1px solid rgba(0, 0, 25, 0.08);
+}
+.tweet-stats p {
+  font-size: 14pt;
+  color: var(--muted-color);
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Attached tweet media shown beside the card (two-column layout).
+   NOTE: cap the <img> with an explicit pixel max-height on tall/portrait
+   images — a percentage max-height can't resolve against an auto grid row,
+   so the image overflows the slide. See references/tweet-embeds.md. */
+.tweet-media {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 0;
+  min-width: 0;
+}
+.tweet-media img {
+  max-width: 100%;
+  border-radius: 14px;
+  border: 1px solid rgba(0, 0, 25, 0.1);
+  box-shadow: 0 18px 50px rgba(0, 0, 25, 0.14);
+}
+
+/* ===========================================
+   FANCY FRAGMENT ANIMATIONS (progressive disclosure)
+   Opt-in: add to any element together with `fragment`.
+     <p class="fragment rise">...</p>
+     <p class="pill fragment pop">...</p>
+   See references/advanced-features.md.
+   =========================================== */
+
+/* Rise + fade + subtle de-blur (text, cards, stats) */
+.reveal .fragment.rise {
+  opacity: 0;
+  transform: translateY(30px);
+  filter: blur(6px);
+  transition: opacity 0.9s ease, transform 0.9s cubic-bezier(0.22, 1, 0.36, 1), filter 0.9s ease;
+}
+.reveal .fragment.rise.visible {
+  opacity: 1;
+  transform: translateY(0);
+  filter: blur(0);
+}
+
+/* Pop / scale-in with a gentle overshoot (pills, badges, numbers) */
+.reveal .fragment.pop {
+  opacity: 0;
+  transform: scale(0.82);
+  transition: opacity 0.6s ease, transform 0.75s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.reveal .fragment.pop.visible {
+  opacity: 1;
+  transform: scale(1);
+}
+
+/* ── "Built with Estradeck" — fixed corner credit shown on every slide ────────
+   Dark translucent pill so it reads on light or colored slide backgrounds.
+   pointer-events:none so it never blocks the edge click-to-advance nav zones. */
+.estradeck-badge {
+  /* position is !important: reveal.css's `.reveal a { position: relative }` has
+     higher specificity and would otherwise drop the badge into normal flow (top). */
+  position: fixed !important;
+  top: auto;
+  left: auto;
+  right: 18px;
+  bottom: 16px;
+  z-index: 50; /* above the edge nav zones (z-index 34) so the link stays clickable */
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 13px 7px 11px;
+  border-radius: 999px;
+  background: rgba(0, 0, 25, 0.55);
+  -webkit-backdrop-filter: blur(7px);
+  backdrop-filter: blur(7px);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  box-shadow: 0 6px 18px rgba(0, 0, 25, 0.28);
+  font-family: var(--body-font, "IBM Plex Sans", Helvetica, sans-serif);
+  font-size: 11pt;
+  line-height: 1;
+  letter-spacing: 0.2px;
+  pointer-events: auto;
+  cursor: pointer;
+  text-decoration: none;
+  user-select: none;
+  -webkit-user-select: none;
+  transition: background 0.18s ease, transform 0.18s ease, box-shadow 0.18s ease;
+}
+.estradeck-badge:hover {
+  background: rgba(0, 0, 25, 0.72);
+  border-color: rgba(255, 255, 255, 0.28);
+  transform: translateY(-1px);
+  box-shadow: 0 8px 22px rgba(0, 0, 25, 0.35);
+}
+.estradeck-badge .eb-logo { color: #fea9c6; font-size: 9.5pt; }
+.estradeck-badge .eb-text { color: rgba(255, 255, 255, 0.72); font-weight: 500; }
+.estradeck-badge .eb-mark { font-weight: 700; white-space: nowrap; }
+.estradeck-badge .eb-mark .bm-w { color: #fff; }
+.estradeck-badge .eb-mark .bm-g {
+  background: linear-gradient(90deg, #fff 0%, #fea9c6 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+.estradeck-badge .eb-mark .bm-p { color: #fea9c6; }
+
+/* Shrink the badge on phones/tablets — the deck scales down but a fixed-size badge
+   would otherwise look oversized against the smaller slide content. */
+@media (max-width: 768px), (max-height: 480px) {
+  .estradeck-badge {
+    right: 6px;
+    bottom: 6px;
+    gap: 3px;
+    padding: 2px 7px 2px 6px;
+    font-size: 4.5pt;
+  }
+  .estradeck-badge .eb-logo { font-size: 4pt; }
+}
