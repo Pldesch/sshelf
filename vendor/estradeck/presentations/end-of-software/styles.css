@@ -1,0 +1,991 @@
+/* Base reveal.js styles — Syndicats brand (redesign-2026)
+ *
+ * Copy this file as styles.css for each new presentation.
+ * Defaults to the Syndicats brand: IBM Plex Sans/Mono + brand palette.
+ * Customize the CSS variables for your theme (or switch to the dark mode shown below).
+ *
+ * IMPORTANT: All font sizes use pt (points) for predictable sizing.
+ * Base text is intentionally small (16pt) to fit content-heavy slides.
+ * Use .text-lg, .text-xl, etc. classes when slides have less content.
+ */
+
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
+
+/* @studio-theme syndicats hash:4683a074180e — managed by Estradeck. Edit via the theme, not here. */
+:root {
+  --primary-color: #5b24b9;
+  --secondary-color: #fea9c6;
+  --accent-purple: #7a3cf6;
+  --ink: #000019;
+  --background-color: #7a3cf6;
+  --section-divider-bg: #5b24b9;
+  --text-color: #000019;
+  --muted-color: rgba(0, 0, 25, 0.5);
+  --line-color: rgba(0, 0, 25, 0.2);
+  --heading-font: "IBM Plex Sans", Helvetica, sans-serif;
+  --body-font: "IBM Plex Sans", Helvetica, sans-serif;
+  --mono-font: "IBM Plex Mono", monospace;
+  --base-font-size: 32px;
+  --text-size: 16pt;
+  --h1-size: 48pt;
+  --h2-size: 36pt;
+  --h3-size: 24pt;
+  --footnote-size: 11pt;
+}
+/* @end-studio-theme */
+
+/* ===========================================
+   CSS VARIABLES - Customize these for each presentation
+   =========================================== */
+:root {
+  --slide-padding: 60px;
+  --slide-padding-top: 40px;
+  --content-gap: 30px;
+  --box-radius: 14px;
+}
+
+/* ===========================================
+   BASE STYLES - Override reveal.js defaults
+   =========================================== */
+
+.reveal {
+  font-family: var(--body-font);
+  font-size: var(--base-font-size);
+}
+
+/* Restore bold after reset.css strips it with font: inherit */
+.reveal strong,
+.reveal b {
+  font-weight: bold;
+}
+
+/* Apply background colors */
+.reveal-viewport {
+  background-color: var(--background-color);
+}
+
+/* Hide reveal's built-in nav arrows in every presentation — navigate with the
+   arrow keys, space, or by clicking. */
+.reveal .controls {
+  display: none !important;
+}
+
+/* Section divider background via data-state */
+.reveal-viewport.is-section-divider .slide-background.present {
+  background-color: var(--section-divider-bg) !important;
+}
+
+.reveal h1,
+.reveal h2,
+.reveal h3,
+.reveal h4,
+.reveal h5,
+.reveal h6 {
+  font-family: var(--heading-font);
+  text-transform: none;
+  color: var(--text-color);
+  font-weight: 700;   /* Brand headings are heavy/bold */
+  line-height: 1.15;
+}
+
+.reveal h1 { font-size: var(--h1-size); }
+.reveal h2 { font-size: var(--h2-size); margin-bottom: 0; }
+.reveal h3 { font-size: var(--h3-size); }
+
+.reveal p,
+.reveal li,
+.reveal td,
+.reveal th,
+.reveal blockquote {
+  font-size: var(--text-size);
+  color: var(--text-color);
+  line-height: 1.5;
+}
+
+/* ===========================================
+   LISTS
+   =========================================== */
+
+.reveal ul {
+  list-style: none;
+  padding-left: 0;
+  margin: 15px 0;
+}
+
+.reveal ul li {
+  position: relative;
+  padding-left: 25px;
+  margin-bottom: 10px;
+}
+
+.reveal ul li::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0.6em;
+  width: 8px;
+  height: 8px;
+  background: var(--text-color);
+  border-radius: 50%;
+}
+
+.reveal ul ul li::before {
+  background: var(--muted-color);
+  width: 6px;
+  height: 6px;
+}
+
+/* Prevent double-sizing for nested elements */
+.reveal blockquote p {
+  font-size: inherit;
+}
+
+/* ===========================================
+   SLIDE LAYOUT
+   =========================================== */
+
+.reveal .slides section {
+  height: 100%;
+  display: flex !important;
+  flex-direction: column !important;
+  padding: var(--slide-padding-top) var(--slide-padding) var(--slide-padding) var(--slide-padding) !important;
+  box-sizing: border-box;
+  text-align: left;
+}
+
+/* Vertical stack wrapper - no padding, just pass through */
+.reveal .slides section.stack {
+  padding: 0 !important;
+}
+
+/* Content area - fills remaining space */
+.reveal .slides section > .content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  padding-top: var(--content-gap);
+  text-align: left;
+}
+
+/* Footnotes at bottom */
+.reveal .slides section > .footnote {
+  position: absolute;
+  bottom: 15px;
+  left: var(--slide-padding);
+  right: var(--slide-padding);
+  font-size: var(--footnote-size);
+  color: var(--muted-color);
+}
+
+/* ===========================================
+   SECTION DIVIDERS - Centered title slides
+   =========================================== */
+
+.reveal .slides section.section-divider {
+  display: flex !important;
+  flex-direction: column !important;
+  justify-content: center !important;
+  align-items: center !important;
+  text-align: center;
+}
+
+.reveal .slides section.section-divider h1 {
+  font-size: 60pt;
+  text-align: center;
+  /* Dividers default to the brand purple background, so the headline is pink */
+  color: var(--secondary-color);
+}
+
+.reveal .slides section.section-divider p {
+  font-size: 20pt;
+  color: rgba(255, 255, 255, 0.8);
+}
+
+/* ===========================================
+   TEXT SIZE UTILITIES
+
+   Base text is 16pt - use these to scale UP when
+   slides have less content and you want to fill space.
+   =========================================== */
+
+.text-lg { font-size: 18pt !important; }   /* Slightly larger */
+.text-xl { font-size: 20pt !important; }   /* Medium emphasis */
+.text-2xl { font-size: 24pt !important; }  /* Strong emphasis */
+.text-3xl { font-size: 28pt !important; }  /* Very large */
+.text-4xl { font-size: 32pt !important; }  /* Maximum body text */
+
+/* Other text utilities */
+.text-muted { color: var(--muted-color) !important; }
+.text-center { text-align: center !important; }
+.text-uppercase { text-transform: uppercase; letter-spacing: 0.1em; }
+.font-light { font-weight: 300; }
+.font-bold { font-weight: 600; }
+
+/* ===========================================
+   BLOCKQUOTES
+   =========================================== */
+
+.reveal blockquote {
+  border-left: 4px solid var(--primary-color);
+  padding-left: 20px;
+  margin: 20px 0;
+  font-style: italic;
+  background: none;
+  box-shadow: none;
+  width: 100%;
+  max-width: none;
+}
+
+.reveal blockquote cite {
+  display: block;
+  margin-top: 10px;
+  font-style: normal;
+  color: var(--muted-color);
+}
+
+/* ===========================================
+   OPTIONAL: TITLE WITH UNDERLINE
+
+   Add this to presentations where you want
+   a line under the slide title.
+   =========================================== */
+
+/*
+.reveal .slides section > h1,
+.reveal .slides section > h2 {
+  flex-shrink: 0;
+  margin: 0;
+  padding-bottom: 15px;
+  border-bottom: 2px solid var(--line-color);
+}
+*/
+
+/* ===========================================
+   OPTIONAL: DECORATIVE ELEMENTS
+   =========================================== */
+
+/* Top decorative line on all slides */
+/*
+.reveal .slides section::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: var(--primary-color);
+}
+*/
+
+/* Bottom decorative line */
+/*
+.reveal .slides section::after {
+  content: '';
+  position: absolute;
+  bottom: 40px;
+  left: var(--slide-padding);
+  right: var(--slide-padding);
+  height: 2px;
+  background: var(--line-color);
+}
+*/
+
+/* ===========================================
+   SYNDICATS INFOGRAPHIC COMPONENTS
+   (custom for the "End of Software" deck)
+   =========================================== */
+
+/* Eyebrow label - mono, uppercase, tracked out */
+.eyebrow {
+  font-family: var(--mono-font);
+  font-size: 13pt;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  color: var(--primary-color);
+  margin: 0 0 18px 0;
+}
+
+/* Brand purple -> pink gradient text (hero titles & numbers) */
+.gradient-text {
+  background: linear-gradient(135deg, var(--primary-color) 0%, var(--accent-purple) 45%, var(--secondary-color) 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+}
+
+/* Thin gradient accent bar */
+.accent-bar {
+  width: 72px;
+  height: 6px;
+  border-radius: 6px;
+  background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+  margin: 0 0 26px 0;
+}
+
+/* ---- Dark-slide overrides (white text on ink background) ---- */
+.reveal .slides section.on-dark h1,
+.reveal .slides section.on-dark h2,
+.reveal .slides section.on-dark h3,
+.reveal .slides section.on-dark p,
+.reveal .slides section.on-dark li {
+  color: #ffffff;
+}
+.reveal .slides section.on-dark .text-muted { color: rgba(255, 255, 255, 0.62) !important; }
+.reveal .slides section.on-dark .footnote { color: rgba(255, 255, 255, 0.5); }
+.reveal .slides section.on-dark ul li::before { background: var(--secondary-color); }
+
+/* ---- Stat block (number + label) ---- */
+.stat-num {
+  font-family: var(--heading-font);
+  font-size: 46pt;
+  font-weight: 700;
+  line-height: 1;
+  margin: 0;
+}
+.stat-label {
+  font-size: 13pt;
+  line-height: 1.35;
+  margin: 10px 0 0 0;
+}
+
+/* ---- Era / timeline card ---- */
+.era-card {
+  border: 1px solid var(--line-color);
+  border-radius: 14px;
+  padding: 24px 22px;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  box-sizing: border-box;
+  background: #ffffff;
+}
+/* Highlighted "now" card with gradient border */
+.era-card.is-now {
+  border: 2px solid transparent;
+  background:
+    linear-gradient(#ffffff, #ffffff) padding-box,
+    linear-gradient(135deg, var(--primary-color), var(--secondary-color)) border-box;
+}
+.era-icon {
+  width: 52px;
+  height: 52px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 21pt;
+  color: #ffffff;
+  background: linear-gradient(135deg, var(--primary-color), var(--accent-purple));
+  margin-bottom: 16px;
+}
+.era-card.is-now .era-icon {
+  background: linear-gradient(135deg, var(--accent-purple), var(--secondary-color));
+}
+.era-tag {
+  font-family: var(--mono-font);
+  font-size: 10.5pt;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--muted-color);
+  margin: 0 0 4px 0;
+}
+.era-title {
+  font-size: 20pt;
+  font-weight: 600;
+  margin: 0 0 8px 0;
+}
+.era-desc { font-size: 13pt; margin: 0; }
+
+/* Arrow between era cards */
+.era-arrow {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--accent-purple);
+  font-size: 20pt;
+}
+
+/* ---- Insight callout ---- */
+.callout {
+  border-left: 5px solid var(--primary-color);
+  background: rgba(91, 36, 185, 0.06);
+  border-radius: 0 10px 10px 0;
+  padding: 16px 22px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+.callout p { margin: 0; }
+
+/* Mono kicker / lead-in line above a bold headline (brand signature lockup) */
+.kicker {
+  font-family: var(--mono-font);
+  font-size: 17pt;
+  font-weight: 500;
+  color: var(--ink);
+  margin: 0 0 8px 0;
+}
+
+/* White rounded pill - logo lockup / tag */
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  background: #ffffff;
+  color: var(--primary-color);
+  font-weight: 700;
+  border-radius: 999px;
+  padding: 12px 26px;
+  font-size: 20pt;
+  line-height: 1;
+}
+.pill i { color: var(--primary-color); }
+
+/* ---- Purple color-block slide -> white body, pink accents ---- */
+.reveal .slides section.on-purple h1,
+.reveal .slides section.on-purple h2,
+.reveal .slides section.on-purple h3,
+.reveal .slides section.on-purple p,
+.reveal .slides section.on-purple li { color: #ffffff; }
+.reveal .slides section.on-purple .kicker { color: rgba(255, 255, 255, 0.8); }
+.reveal .slides section.on-purple .text-muted { color: rgba(255, 255, 255, 0.65) !important; }
+.reveal .slides section.on-purple .footnote { color: rgba(255, 255, 255, 0.55); }
+.reveal .slides section.on-purple ul li::before { background: var(--secondary-color); }
+
+/* ---- Pink color-block slide -> ink body + headings ---- */
+.reveal .slides section.on-pink h1,
+.reveal .slides section.on-pink h2,
+.reveal .slides section.on-pink h3 { color: var(--ink); }
+.reveal .slides section.on-pink p,
+.reveal .slides section.on-pink li { color: var(--ink); }
+.reveal .slides section.on-pink .kicker { color: var(--ink); }
+.reveal .slides section.on-pink .text-muted { color: rgba(0, 0, 25, 0.6) !important; }
+.reveal .slides section.on-pink .footnote { color: rgba(0, 0, 25, 0.55); }
+.reveal .slides section.on-pink ul li::before { background: var(--primary-color); }
+
+/* ===========================================
+   FANCY FRAGMENT ANIMATIONS (progressive disclosure)
+   Use: <el class="fragment rise"> or <el class="fragment pop">
+   =========================================== */
+
+/* Rise + fade + subtle de-blur (text, cards, stats) */
+.reveal .fragment.rise {
+  opacity: 0;
+  transform: translateY(30px);
+  filter: blur(6px);
+  transition: opacity 0.9s ease, transform 0.9s cubic-bezier(0.22, 1, 0.36, 1), filter 0.9s ease;
+}
+.reveal .fragment.rise.visible {
+  opacity: 1;
+  transform: translateY(0);
+  filter: blur(0);
+}
+
+/* Pop / scale-in with a gentle overshoot (pills, badges, numbers) */
+.reveal .fragment.pop {
+  opacity: 0;
+  transform: scale(0.82);
+  transition: opacity 0.6s ease, transform 0.75s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.reveal .fragment.pop.visible {
+  opacity: 1;
+  transform: scale(1);
+}
+
+/* ===========================================
+   TWEET PREVIEW CARD
+   =========================================== */
+.tweet-card {
+  position: relative;
+  width: 100%;
+  max-width: 720px;
+  background: #ffffff;
+  border: 1px solid rgba(0, 0, 25, 0.1);
+  border-radius: 18px;
+  box-shadow: 0 18px 50px rgba(0, 0, 25, 0.12);
+  padding: 30px 36px 24px;
+  overflow: hidden;
+}
+.tweet-head {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 18px;
+}
+.tweet-avatar {
+  width: 54px; height: 54px;
+  border-radius: 50%;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+.tweet-name {
+  font-size: 17pt;
+  font-weight: 700;
+  color: var(--ink);
+  margin: 0;
+  line-height: 1.2;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.tweet-badge { color: #1d9bf0; font-size: 14pt; }
+.tweet-handle {
+  font-size: 14pt;
+  color: var(--muted-color);
+  margin: 2px 0 0;
+}
+.tweet-logo {
+  font-size: 22pt;
+  color: var(--ink);
+  margin-left: auto;
+  align-self: flex-start;
+}
+.tweet-body {
+  font-size: 18pt;
+  line-height: 1.5;
+  color: var(--ink);
+  margin: 0 0 14px;
+}
+.tweet-meta {
+  font-size: 12.5pt;
+  color: var(--muted-color);
+  margin: 18px 0 0;
+}
+.tweet-stats {
+  display: flex;
+  align-items: center;
+  gap: 40px;
+  margin-top: 14px;
+  padding-top: 16px;
+  border-top: 1px solid rgba(0, 0, 25, 0.08);
+}
+.tweet-stats p {
+  font-size: 14pt;
+  color: var(--muted-color);
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Framed tweet media (attached image shown beside the card) */
+.tweet-media {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 0;
+  min-width: 0;
+}
+.tweet-media img {
+  max-height: 100%;
+  max-width: 100%;
+  border-radius: 14px;
+  border: 1px solid rgba(0, 0, 25, 0.1);
+  box-shadow: 0 18px 50px rgba(0, 0, 25, 0.14);
+}
+
+/* White content panel — keeps charts/data readable on a color-block slide */
+.panel {
+  background: #ffffff;
+  border-radius: 18px;
+  box-shadow: 0 18px 50px rgba(0, 0, 25, 0.12);
+  padding: 22px 28px;
+}
+
+/* Animation-showcase chips (appendix) */
+.anim-chip {
+  margin: 0;
+  padding: 16px 10px;
+  text-align: center;
+  font-family: var(--mono-font);
+  font-size: 13pt;
+  color: #ffffff;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+/* ===========================================
+   PRODUCT CARDS — redesign-2026 "Unsere Produkte"
+   White rounded cards, image on top, IBM Plex Mono headings.
+   =========================================== */
+.product-card {
+  background: #ffffff;
+  color: var(--ink);
+  border-radius: 24px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  box-shadow: 0 16px 44px rgba(0, 0, 25, 0.22);
+}
+.product-card img {
+  width: 100%;
+  height: 196px;
+  object-fit: cover;
+  background: var(--primary-color);   /* brand purple behind the artwork */
+  display: block;
+}
+.product-body {
+  padding: 16px 20px 20px;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+}
+.product-name {
+  font-family: var(--mono-font);
+  font-weight: 700;
+  font-size: 15pt;
+  line-height: 1.1;
+  color: var(--ink);
+  margin: 0;
+}
+.product-cat {
+  font-family: var(--mono-font);
+  font-size: 11.5pt;
+  color: var(--primary-color);
+  margin: 5px 0 12px;
+}
+.product-desc {
+  font-size: 11pt;
+  line-height: 1.45;
+  color: rgba(0, 0, 25, 0.7);
+  margin: 0;
+}
+
+/* ===========================================
+   SDLC · THEORY-OF-CONSTRAINTS PIPELINE
+   Animated bottleneck-shift diagram. The whole machine reacts to
+   #sdlc-machine[data-phase="0..3"], set by fragment events in the page.
+   Bar height = the throughput cost a stage imposes -> the tallest bar
+   is the constraint. Stepping the slide re-shapes the bars.
+   =========================================== */
+
+.sdlc-machine {
+  position: relative;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-height: 0;
+  margin-top: 8px;
+}
+
+/* Era pill, top-right — changes label as the story advances */
+.sdlc-era {
+  position: absolute;
+  top: -6px;
+  right: 0;
+  font-family: var(--mono-font);
+  font-size: 10.5pt;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  border-radius: 999px;
+  padding: 6px 15px;
+  margin: 0;
+}
+
+/* Generic phase-driven show/hide — used by era pill, tags, icons, roles.
+   Each element lists the phases it belongs to in data-show ("2 3"). */
+#sdlc-machine [data-show] { display: none; }
+#sdlc-machine[data-phase="0"] [data-show~="0"],
+#sdlc-machine[data-phase="1"] [data-show~="1"],
+#sdlc-machine[data-phase="2"] [data-show~="2"],
+#sdlc-machine[data-phase="3"] [data-show~="3"] { display: inline-block; }
+
+/* ---- pipeline row ---- */
+.sdlc-pipeline {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.sdlc-stage {
+  width: 138px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+/* Tag pill above the bar (Bottleneck / The constraint / Automated) */
+.sdlc-tag-slot {
+  height: 36px;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  margin-bottom: 10px;
+}
+.sdlc-tag {
+  font-family: var(--mono-font);
+  font-size: 9.5pt;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  padding: 5px 12px;
+  border-radius: 999px;
+  white-space: nowrap;
+  margin: 0;
+  animation: sdlcPopIn 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+.sdlc-tag.t-bottleneck { background: #ffffff; color: var(--ink); }
+.sdlc-tag.t-constraint { background: var(--secondary-color); color: var(--ink); }
+.sdlc-tag.t-agent {
+  background: rgba(255, 255, 255, 0.1);
+  color: #ffffff;
+  border: 1px dashed rgba(255, 255, 255, 0.55);
+}
+@keyframes sdlcPopIn {
+  from { opacity: 0; transform: translateY(8px) scale(0.9); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+/* keep dark text on the light/pink pills (beat .on-purple p -> white) */
+.reveal .slides section.on-purple #sdlc-machine .sdlc-tag.t-bottleneck,
+.reveal .slides section.on-purple #sdlc-machine .sdlc-tag.t-constraint { color: var(--ink); }
+
+/* ---- the throughput-cost bar ---- */
+.sdlc-bar-track {
+  height: 232px;
+  width: 72px;
+  display: flex;
+  align-items: flex-end;
+  border-bottom: 2px solid rgba(255, 255, 255, 0.22);
+}
+.sdlc-bar {
+  width: 100%;
+  min-height: 10px;
+  border-radius: 10px 10px 3px 3px;
+  /* neutral default (on purple background) */
+  background: rgba(255, 255, 255, 0.13);
+  border: 1.5px solid rgba(255, 255, 255, 0.4);
+  transition: height 0.7s cubic-bezier(0.22, 1, 0.36, 1),
+              background-color 0.55s ease,
+              border-color 0.55s ease,
+              box-shadow 0.55s ease;
+}
+
+/* ---- owner icon + stage name + role caption ---- */
+.sdlc-owner {
+  height: 26px;
+  margin-top: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.sdlc-ic { font-size: 15pt; }
+.sdlc-ic.human { color: #ffffff; }
+.sdlc-ic.agent { color: var(--secondary-color); }
+.sdlc-name {
+  font-size: 13.5pt;
+  font-weight: 600;
+  margin: 8px 0 2px;
+  text-align: center;
+}
+.sdlc-role {
+  font-family: var(--mono-font);
+  font-size: 9pt;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted-color);
+  margin: 0;
+  text-align: center;
+}
+/* role caption colours on the purple background (beat .on-purple p -> white) */
+.reveal .slides section.on-purple #sdlc-machine .sdlc-role { color: rgba(255, 255, 255, 0.7); }
+.reveal .slides section.on-purple #sdlc-machine .sdlc-role .role-agent { color: var(--secondary-color); }
+
+/* flow arrow between stages */
+.sdlc-arrow {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 18pt;
+  width: 26px;
+}
+
+/* The pipeline stages + arrows are reveal.js fragments (class "fragment rise"),
+   so each clicks in left-to-right before the bottleneck phases play. */
+
+/* ============ BAR HEIGHTS PER PHASE ============ */
+/* phase 0 — the principle: a natural, near-even spread */
+#sdlc-machine[data-phase="0"] .sdlc-stage[data-stage="plan"] .sdlc-bar      { height: 48%; }
+#sdlc-machine[data-phase="0"] .sdlc-stage[data-stage="design"] .sdlc-bar    { height: 42%; }
+#sdlc-machine[data-phase="0"] .sdlc-stage[data-stage="implement"] .sdlc-bar { height: 58%; }
+#sdlc-machine[data-phase="0"] .sdlc-stage[data-stage="review"] .sdlc-bar    { height: 50%; }
+#sdlc-machine[data-phase="0"] .sdlc-stage[data-stage="ship"] .sdlc-bar      { height: 34%; }
+
+/* phase 1 — yesterday: implementation towers over everything */
+#sdlc-machine[data-phase="1"] .sdlc-stage[data-stage="plan"] .sdlc-bar      { height: 32%; }
+#sdlc-machine[data-phase="1"] .sdlc-stage[data-stage="design"] .sdlc-bar    { height: 28%; }
+#sdlc-machine[data-phase="1"] .sdlc-stage[data-stage="implement"] .sdlc-bar { height: 98%; }
+#sdlc-machine[data-phase="1"] .sdlc-stage[data-stage="review"] .sdlc-bar    { height: 40%; }
+#sdlc-machine[data-phase="1"] .sdlc-stage[data-stage="ship"] .sdlc-bar      { height: 24%; }
+
+/* phase 2 — today: agents collapse design + implementation */
+#sdlc-machine[data-phase="2"] .sdlc-stage[data-stage="plan"] .sdlc-bar      { height: 36%; }
+#sdlc-machine[data-phase="2"] .sdlc-stage[data-stage="design"] .sdlc-bar    { height: 18%; }
+#sdlc-machine[data-phase="2"] .sdlc-stage[data-stage="implement"] .sdlc-bar { height: 13%; }
+#sdlc-machine[data-phase="2"] .sdlc-stage[data-stage="review"] .sdlc-bar    { height: 44%; }
+#sdlc-machine[data-phase="2"] .sdlc-stage[data-stage="ship"] .sdlc-bar      { height: 26%; }
+
+/* phase 3 — the shift: planning + review become the new constraints */
+#sdlc-machine[data-phase="3"] .sdlc-stage[data-stage="plan"] .sdlc-bar      { height: 94%; }
+#sdlc-machine[data-phase="3"] .sdlc-stage[data-stage="design"] .sdlc-bar    { height: 18%; }
+#sdlc-machine[data-phase="3"] .sdlc-stage[data-stage="implement"] .sdlc-bar { height: 13%; }
+#sdlc-machine[data-phase="3"] .sdlc-stage[data-stage="review"] .sdlc-bar    { height: 98%; }
+#sdlc-machine[data-phase="3"] .sdlc-stage[data-stage="ship"] .sdlc-bar      { height: 30%; }
+
+/* ============ BAR COLOURS PER PHASE ============ */
+/* old constraint — solid white bottleneck (pops on the purple slide) */
+#sdlc-machine[data-phase="1"] .sdlc-stage[data-stage="implement"] .sdlc-bar {
+  background: #ffffff;
+  border-color: #ffffff;
+  box-shadow: 0 14px 40px rgba(0, 0, 25, 0.3);
+}
+/* automated stages — faint dashed-white "agent" bars */
+#sdlc-machine[data-phase="2"] .sdlc-stage[data-stage="implement"] .sdlc-bar,
+#sdlc-machine[data-phase="2"] .sdlc-stage[data-stage="design"] .sdlc-bar,
+#sdlc-machine[data-phase="3"] .sdlc-stage[data-stage="implement"] .sdlc-bar,
+#sdlc-machine[data-phase="3"] .sdlc-stage[data-stage="design"] .sdlc-bar {
+  background: rgba(255, 255, 255, 0.1);
+  border: 1.5px dashed rgba(255, 255, 255, 0.6);
+}
+/* new constraints — solid pink, glowing */
+#sdlc-machine[data-phase="3"] .sdlc-stage[data-stage="plan"] .sdlc-bar,
+#sdlc-machine[data-phase="3"] .sdlc-stage[data-stage="review"] .sdlc-bar {
+  background: var(--secondary-color);
+  border-color: #f07faa;
+  box-shadow: 0 12px 34px rgba(254, 169, 198, 0.6);
+}
+
+/* ---- crossfading caption beneath the pipeline ---- */
+.sdlc-caption {
+  position: relative;
+  height: 84px;
+  margin-top: 30px;
+}
+.sdlc-cap {
+  position: absolute;
+  inset: 0;
+  margin: 0;
+  text-align: center;
+  font-size: 17pt;
+  line-height: 1.4;
+  opacity: 0;
+  transition: opacity 0.5s ease;
+}
+.sdlc-cap strong { color: var(--secondary-color); font-weight: 700; }
+.sdlc-cap .pink { color: var(--secondary-color); }
+#sdlc-machine[data-phase="0"] .sdlc-cap.cap-0,
+#sdlc-machine[data-phase="1"] .sdlc-cap.cap-1,
+#sdlc-machine[data-phase="2"] .sdlc-cap.cap-2,
+#sdlc-machine[data-phase="3"] .sdlc-cap.cap-3 { opacity: 1; }
+
+/* Invisible fragment triggers — they only fire events to drive the diagrams */
+.phase-step,
+.chart-step {
+  position: absolute;
+  width: 0;
+  height: 0;
+  padding: 0;
+  margin: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+/* --- Video embeds (added by the studio) --- */
+.video-embed {
+  position: relative;
+  margin: 0 auto;
+  max-width: 960px;
+  aspect-ratio: 16 / 9;
+  border-radius: var(--box-radius, 14px);
+  overflow: hidden;
+  border: 1px solid var(--line-color, rgba(255, 255, 255, 0.14));
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.45);
+  background: #000;
+}
+.video-embed video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.video-caption {
+  margin-top: 0.5em;
+  font-size: var(--footnote-size, 0.5em);
+  color: var(--muted-color, #9aa0b5);
+  text-align: center;
+}
+
+/* ── "Built with Estradeck" — fixed corner credit shown on every slide ────────
+   Dark translucent pill so it reads on both purple and pink brand backgrounds.
+   pointer-events:none so it never blocks the edge click-to-advance nav zones. */
+.estradeck-badge {
+  /* position is !important: reveal.css's `.reveal a { position: relative }` has
+     higher specificity and would otherwise drop the badge into normal flow (top). */
+  position: fixed !important;
+  top: auto;
+  left: auto;
+  right: 18px;
+  bottom: 16px;
+  z-index: 50; /* above the edge nav zones (z-index 34) so the link stays clickable */
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 13px 7px 11px;
+  border-radius: 999px;
+  background: rgba(0, 0, 25, 0.55);
+  -webkit-backdrop-filter: blur(7px);
+  backdrop-filter: blur(7px);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  box-shadow: 0 6px 18px rgba(0, 0, 25, 0.28);
+  font-family: var(--body-font, "IBM Plex Sans", Helvetica, sans-serif);
+  font-size: 11pt;
+  line-height: 1;
+  letter-spacing: 0.2px;
+  pointer-events: auto;
+  cursor: pointer;
+  text-decoration: none;
+  user-select: none;
+  -webkit-user-select: none;
+  transition: background 0.18s ease, transform 0.18s ease, box-shadow 0.18s ease;
+}
+.estradeck-badge:hover {
+  background: rgba(0, 0, 25, 0.72);
+  border-color: rgba(255, 255, 255, 0.28);
+  transform: translateY(-1px);
+  box-shadow: 0 8px 22px rgba(0, 0, 25, 0.35);
+}
+.estradeck-badge .eb-logo { color: #fea9c6; font-size: 9.5pt; }
+.estradeck-badge .eb-text { color: rgba(255, 255, 255, 0.72); font-weight: 500; }
+.estradeck-badge .eb-mark { font-weight: 700; white-space: nowrap; }
+.estradeck-badge .eb-mark .bm-w { color: #fff; }
+.estradeck-badge .eb-mark .bm-g {
+  background: linear-gradient(90deg, #fff 0%, #fea9c6 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+.estradeck-badge .eb-mark .bm-p { color: #fea9c6; }
+
+/* Shrink the badge on phones/tablets — the deck scales down but a fixed-size badge
+   would otherwise look oversized against the smaller slide content. */
+@media (max-width: 768px), (max-height: 480px) {
+  .estradeck-badge {
+    right: 6px;
+    bottom: 6px;
+    gap: 3px;
+    padding: 2px 7px 2px 6px;
+    font-size: 4.5pt;
+  }
+  .estradeck-badge .eb-logo { font-size: 4pt; }
+}

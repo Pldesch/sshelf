@@ -1,0 +1,122 @@
+<section
+  id="title"
+  style="justify-content: center; align-items: flex-start; text-align: left"
+  class="on-purple title-hero"
+  data-background-color="#5b24b9"
+>
+  <style>
+    /* Fullscreen animated brand background.
+       Reveal copies a slide's classes onto its own full-viewport
+       .slide-background layer, so styling .slide-background.title-hero lets the
+       motion fill the ENTIRE screen — including the letterbox margins beyond the
+       16:9 slide box. The background sits behind the slide content, so the
+       logo + headline always read on top.
+
+       Look: a living purple "aurora" — a diagonal gradient from the brand
+       primary (#5b24b9) down into a deep indigo (#25094f), brought to life by
+       four independently-timed motions (primary-only derivations, no pink):
+         1. four soft light-purple auras drift across the screen on an organic,
+            multi-waypoint path so the mesh never repeats in lockstep (drift)
+         2. the whole field gently breathes brighter + more saturated (pulse)
+         3. a center glow orbits in a slow loop, swelling as it travels (::before)
+         4. a rotating conic sheen sweeps light streaks for depth      (::after)
+       The glow layers use mix-blend-mode:screen so they ADD light over the
+       gradient. overflow:hidden clips the oversized layers to the screen. */
+    .reveal .backgrounds .slide-background.title-hero {
+      overflow: hidden;
+      background-color: #25094f;
+      background-image:
+        /* base: brand primary -> deep indigo, diagonal */
+        linear-gradient(155deg, #5b24b9 0%, #4a1c9c 46%, #25094f 100%),
+        /* four drifting light-purple auras for a living mesh */
+        radial-gradient(46% 58% at 24% 30%, rgba(141, 88, 255, 0.60) 0%, rgba(141, 88, 255, 0) 60%),
+        radial-gradient(50% 60% at 80% 70%, rgba(122, 60, 246, 0.50) 0%, rgba(122, 60, 246, 0) 58%),
+        radial-gradient(40% 48% at 62% 16%, rgba(168, 120, 255, 0.42) 0%, rgba(168, 120, 255, 0) 60%),
+        radial-gradient(44% 52% at 14% 84%, rgba(99, 45, 209, 0.46) 0%, rgba(99, 45, 209, 0) 60%);
+      background-repeat: no-repeat;
+      /* every layer oversized so it has room to roam */
+      background-size: 165% 165%, 170% 170%, 185% 185%, 180% 180%, 175% 175%;
+      background-position: 0% 0%, 18% 22%, 84% 70%, 60% 12%, 12% 86%;
+      animation:
+        titleAuraDrift 26s ease-in-out infinite alternate,
+        titleAuraPulse 11s ease-in-out infinite alternate;
+    }
+    /* orbiting + breathing center glow (adds light) */
+    .reveal .backgrounds .slide-background.title-hero::before {
+      content: '';
+      position: absolute;
+      inset: -30%;
+      background: radial-gradient(38% 38% at 50% 50%, rgba(170, 120, 255, 0.50) 0%, rgba(170, 120, 255, 0) 70%);
+      mix-blend-mode: screen;
+      animation: titleGlowOrbit 17s ease-in-out infinite;
+      pointer-events: none;
+    }
+    /* rotating conic sheen — sweeping light streaks for depth (adds light) */
+    .reveal .backgrounds .slide-background.title-hero::after {
+      content: '';
+      position: absolute;
+      inset: -60%;
+      background: conic-gradient(from 0deg,
+        rgba(141, 88, 255, 0) 0deg,
+        rgba(141, 88, 255, 0.16) 68deg,
+        rgba(122, 60, 246, 0) 150deg,
+        rgba(180, 130, 255, 0.13) 238deg,
+        rgba(141, 88, 255, 0) 320deg,
+        rgba(141, 88, 255, 0) 360deg);
+      mix-blend-mode: screen;
+      animation: titleSheenSpin 36s linear infinite;
+      pointer-events: none;
+    }
+    /* organic multi-waypoint drift; alternate reverses the path seamlessly */
+    @keyframes titleAuraDrift {
+      0%   { background-position: 0% 0%,   18% 22%, 84% 70%, 60% 12%, 12% 86%; }
+      50%  { background-position: 100% 50%, 70% 64%, 30% 36%, 24% 60%, 78% 40%; }
+      100% { background-position: 0% 100%, 34% 80%, 66% 22%, 80% 48%, 30% 18%; }
+    }
+    /* whole field breathes brighter + more saturated */
+    @keyframes titleAuraPulse {
+      0%   { filter: saturate(1) brightness(1); }
+      100% { filter: saturate(1.2) brightness(1.09); }
+    }
+    /* glow orbits in a closed loop (0% == 100% so it never jumps) */
+    @keyframes titleGlowOrbit {
+      0%   { transform: translate(-12%, -6%) scale(0.85); opacity: 0.50; }
+      25%  { transform: translate(9%, -11%)  scale(1.06); opacity: 0.85; }
+      50%  { transform: translate(15%, 9%)   scale(1.22); opacity: 1.00; }
+      75%  { transform: translate(-7%, 13%)  scale(1.00); opacity: 0.80; }
+      100% { transform: translate(-12%, -6%) scale(0.85); opacity: 0.50; }
+    }
+    @keyframes titleSheenSpin {
+      to { transform: rotate(360deg); }
+    }
+    /* Respect users who prefer reduced motion: hold everything static. */
+    @media (prefers-reduced-motion: reduce) {
+      .reveal .backgrounds .slide-background.title-hero,
+      .reveal .backgrounds .slide-background.title-hero::before,
+      .reveal .backgrounds .slide-background.title-hero::after { animation: none; }
+    }
+  </style>
+  <img
+    src="{{logo}}"
+    alt="Syndicats"
+    style="
+      position: absolute;
+      top: var(--slide-padding-top);
+      left: var(--slide-padding);
+      height: 101px;
+      width: 282px;
+      object-fit: cover;
+      object-position: center;
+    "
+  />
+  <h1 style="font-size: 84pt; line-height: 1; margin-top: 200px">
+    {{headline}}<br /><span style="color: var(--secondary-color)">{{accent}}</span>
+  </h1>
+  <div style="display: flex; justify-content: flex-end; margin-top: 146px; width: 100%">
+    <div>
+      <p class="stat-num" style="color: var(--secondary-color)">{{event}}</p>
+      <p class="stat-label">{{speaker}}</p>
+      <p></p>
+    </div>
+  </div>
+</section>

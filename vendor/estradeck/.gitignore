@@ -1,0 +1,36 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+*.tsbuildinfo
+
+# Logs
+*.log
+
+# OS / editor cruft
+.DS_Store
+.idea/
+
+# Local env / secrets (keep a committed .env.example if you add one)
+.env
+.env.local
+.env.*.local
+
+# Playwright CLI scratch (page snapshots, console logs, screenshots)
+.playwright-cli/
+
+# Generated landing page (built from the decks at Docker build time)
+presentations/index.html
+
+# Studio runtime artifacts
+.studio-work/
+.studio-history/
+presentations/*/screenshots/
+presentations/*/*.pdf
+presentations/*/*.tmp
+
+# Optional: treat decks as user data and don't commit them.
+# Uncomment to keep only the folder, not its contents:
+# presentations/*
+# !presentations/.gitkeep

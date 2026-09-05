@@ -1,0 +1,36 @@
+{
+  "slug": "intro",
+  "name": "Intro",
+  "placeholders": [
+    {
+      "key": "kicker",
+      "label": "Kicker (eyebrow)",
+      "default": "Your Topic",
+      "type": "text"
+    },
+    {
+      "key": "headline",
+      "label": "Headline (line 1)",
+      "default": "A great",
+      "type": "text"
+    },
+    {
+      "key": "accent",
+      "label": "Accent word (line 2)",
+      "default": "presentation",
+      "type": "text"
+    },
+    {
+      "key": "subtitle",
+      "label": "Subtitle",
+      "default": "Subtitle or event name",
+      "type": "text"
+    },
+    {
+      "key": "speaker",
+      "label": "Speaker",
+      "default": "Presenter Name",
+      "type": "text"
+    }
+  ]
+}

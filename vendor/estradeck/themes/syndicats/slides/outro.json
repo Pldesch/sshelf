@@ -1,0 +1,36 @@
+{
+  "slug": "outro",
+  "name": "Outro",
+  "placeholders": [
+    {
+      "key": "url1",
+      "label": "Url1",
+      "default": "",
+      "type": "text"
+    },
+    {
+      "key": "url2",
+      "label": "Url2",
+      "default": "",
+      "type": "text"
+    },
+    {
+      "key": "qrCodeTitle",
+      "label": "QrCodeTitle",
+      "default": "",
+      "type": "text"
+    },
+    {
+      "key": "qrCodeImg",
+      "label": "QrCodeImg",
+      "default": "assets/linkedin-qr-kai-lehmann.png",
+      "type": "image"
+    },
+    {
+      "key": "companyImg",
+      "label": "CompanyImg",
+      "default": "assets/syndicats_logo.png",
+      "type": "image"
+    }
+  ]
+}
