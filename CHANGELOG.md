@@ -16,7 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   ([#2](https://github.com/Pldesch/sshelf/pull/2)).
 - Added an opt-in, development-only local filesystem transport for running
   Sshelf on the server it browses, with production guards, an explicit bounded
-  root, and symlink-traversal protection.
+  root, symlink-traversal protection, and a `bun run dev:local` shortcut.
 - Added visible directory and per-entry action controls, arbitrary file
   creation, folder renaming, and consistent operation notifications.
 - Added reversible remote trash with Undo and Markdown revision-conflict

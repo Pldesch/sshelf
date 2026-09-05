@@ -22,13 +22,16 @@ to (or set `SSHELF_SSH_HOST`). The browsed remote root defaults to
 `/home/ubuntu` and can be overridden with `SSHELF_REMOTE_ROOT`.
 
 When Sshelf and the browsed files live on the same development server, bypass
-SSH explicitly:
+SSH explicitly. This uses the current directory as the bounded local root:
 
 ```sh
-NODE_ENV=development \
-SSHELF_TRANSPORT=local \
-SSHELF_LOCAL_ROOT=/absolute/path/to/workspace \
-bun run dev
+bun run dev:local
+```
+
+To browse a different directory, override the root explicitly:
+
+```sh
+SSHELF_LOCAL_ROOT=/absolute/path/to/workspace bun run dev:local
 ```
 
 This mode is server-side only and fails closed outside development. The local
