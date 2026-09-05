@@ -15,6 +15,8 @@ import {
 import { sectionInner } from '../lib/cmIntelligence';
 import { RegionPromptPopover } from './RegionPromptPopover';
 import * as api from '../api/client';
+import { isSshelfEmbed } from '../lib/embed';
+import { studioUrl } from '../lib/url';
 
 const clamp = (n: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, n));
 
@@ -63,6 +65,7 @@ function jumpToSelected(reveal: any) {
 }
 
 export function Preview() {
+  const embedded = isSshelfEmbed();
   const deckId = useStudio((s) => s.currentDeckId);
   const previewNonce = useStudio((s) => s.previewNonce);
   const selectedKey = useStudio((s) => s.selectedKey);
@@ -120,7 +123,7 @@ export function Preview() {
     const siMode = wholeSection ? 'section' : 'compose';
     setRegion(null); // close the popover, but leave the marquee up…
     if (doc) setRegionMarqueeBusy(doc, true); // …pulsing while the model works
-    useStudio.getState().setInspectorTab('code'); // jump to the code editor
+    useStudio.getState().setInspectorTab(embedded ? 'colors' : 'code');
     useStudio.getState().showToast('info', 'Slide Intelligence…');
     api
       .generateSi(currentDeckId, { mode: siMode, code: slide.rawHtml, prompt })
@@ -155,7 +158,7 @@ export function Preview() {
   useEffect(() => {
     const iframe = iframeRef.current;
     if (!iframe || !deckId) return;
-    iframe.src = `/decks/${deckId}/presentation.html?n=${previewNonce}`;
+    iframe.src = studioUrl(`/decks/${deckId}/presentation.html?n=${previewNonce}`);
   }, [deckId, previewNonce]);
 
   // A panel resize can make reveal drift (the deck's own resize handlers re-fire). When
@@ -201,15 +204,17 @@ export function Preview() {
 
     // Hold Alt to highlight a slide element; Alt + left-click jumps to its source in the
     // Code tab so it can be edited directly.
-    try {
-      attachAltPicker(w.document, (el) => {
-        const m = useStudio.getState().model;
-        if (!m) return;
-        const info = elementPickInfo(m, el);
-        if (info) useStudio.getState().jumpToElement(info.key, info.path);
-      });
-    } catch {
-      /* cross-origin shouldn't happen for same-origin deck */
+    if (!embedded) {
+      try {
+        attachAltPicker(w.document, (el) => {
+          const m = useStudio.getState().model;
+          if (!m) return;
+          const info = elementPickInfo(m, el);
+          if (info) useStudio.getState().jumpToElement(info.key, info.path);
+        });
+      } catch {
+        /* cross-origin shouldn't happen for same-origin deck */
+      }
     }
 
     // Shift+Cmd marquee → capture the region's context and open the edit-agent popover.

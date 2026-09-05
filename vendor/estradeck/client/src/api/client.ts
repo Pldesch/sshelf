@@ -18,6 +18,7 @@ import type {
   ThemeVar,
   VideoInfo,
 } from '@studio/shared';
+import { studioUrl } from '../lib/url';
 
 export class ApiError extends Error {
   status: number;
@@ -30,7 +31,7 @@ export class ApiError extends Error {
 }
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(path, init);
+  const res = await fetch(studioUrl(path), init);
   if (!res.ok) {
     let body: { error?: string; code?: string } | undefined;
     try {
@@ -209,7 +210,7 @@ export const createThemeSlideFromDeck = (
 
 /** URL for the live-preview iframe of a theme slide rendered with the given values. */
 export const themeSlidePreviewUrl = (themeId: string, slug: string, values: Record<string, string>) =>
-  `/api/themes/${themeId}/slides/${slug}/preview?values=${encodeURIComponent(JSON.stringify(values))}`;
+  studioUrl(`/api/themes/${themeId}/slides/${slug}/preview?values=${encodeURIComponent(JSON.stringify(values))}`);
 
 // --- Theme assets (images + videos in the theme's assets/ folder) ---
 export const listThemeAssets = (themeId: string) =>

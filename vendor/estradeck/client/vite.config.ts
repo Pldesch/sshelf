@@ -6,6 +6,7 @@ import { fileURLToPath } from 'node:url';
 const here = path.dirname(fileURLToPath(import.meta.url));
 
 export default defineConfig({
+  base: '/estradeck/',
   plugins: [react()],
   resolve: {
     alias: {
@@ -15,10 +16,23 @@ export default defineConfig({
   server: {
     port: 5173,
     proxy: {
-      '/api': 'http://localhost:5174',
-      '/decks': 'http://localhost:5174',
-      '/themes': 'http://localhost:5174',
-      '/ws': { target: 'ws://localhost:5174', ws: true },
+      '/estradeck/api': {
+        target: 'http://127.0.0.1:5174',
+        rewrite: (path) => path.replace(/^\/estradeck/, ''),
+      },
+      '/estradeck/decks': {
+        target: 'http://127.0.0.1:5174',
+        rewrite: (path) => path.replace(/^\/estradeck/, ''),
+      },
+      '/estradeck/themes': {
+        target: 'http://127.0.0.1:5174',
+        rewrite: (path) => path.replace(/^\/estradeck/, ''),
+      },
+      '/estradeck/ws': {
+        target: 'ws://127.0.0.1:5174',
+        ws: true,
+        rewrite: (path) => path.replace(/^\/estradeck/, ''),
+      },
     },
   },
 });

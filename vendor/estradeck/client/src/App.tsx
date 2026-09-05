@@ -21,6 +21,7 @@ import { ImagePicker } from './components/ImagePicker';
 import { NewDeckModal } from './components/NewDeckModal';
 import { navigateSlides, isTypingTarget } from './lib/slideNav';
 import { presentDeck, downloadDeckPdf } from './lib/deckActions';
+import { isSshelfEmbed, notifySshelf } from './lib/embed';
 
 const NAV_MIN = 200;
 const NAV_MAX = 560;
@@ -37,6 +38,7 @@ function loadWidth(key: string, fallback: number): number {
 }
 
 export default function App() {
+  const embedded = isSshelfEmbed();
   const mode = useStudio((s) => s.mode);
   const currentDeckId = useStudio((s) => s.currentDeckId);
   const currentThemeId = useStudio((s) => s.currentThemeId);
@@ -73,8 +75,9 @@ export default function App() {
       const st = useStudio.getState();
       // ?theme= opens the theme workspace; otherwise fall back to ?deck=.
       const themeId = params.get('theme');
-      if (themeId && st.themes.some((t) => t.id === themeId)) {
+      if (!embedded && themeId && st.themes.some((t) => t.id === themeId)) {
         await st.selectTheme(themeId, params.get('slug') ?? undefined);
+        notifySshelf('ready');
         return;
       }
       const slideid = params.get('slideid') ?? undefined;
@@ -84,10 +87,11 @@ export default function App() {
       if (deck && st.decks.some((d) => d.id === deck)) {
         await st.selectDeck(deck, slideid);
       }
+      notifySshelf('ready', { deckId: deck });
     })();
     return () => ws.close();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [embedded]);
 
   useEffect(() => {
     if (currentDeckId) wsRef.current?.subscribe(currentDeckId);
@@ -164,6 +168,7 @@ export default function App() {
   // Keep the URL in sync so it's copy-pasteable to reopen this deck slide / theme slide.
   useEffect(() => {
     const params = new URLSearchParams();
+    if (embedded) params.set('embed', 'sshelf');
     if (mode === 'theme') {
       if (!currentThemeId) return;
       params.set('theme', currentThemeId);
@@ -174,7 +179,7 @@ export default function App() {
       if (selectedKey) params.set('slideid', selectedKey);
     }
     window.history.replaceState(null, '', `${window.location.pathname}?${params.toString()}`);
-  }, [mode, currentDeckId, selectedKey, currentThemeId, themeSlug]);
+  }, [embedded, mode, currentDeckId, selectedKey, currentThemeId, themeSlug]);
 
   useEffect(() => {
     localStorage.setItem('studio.navW', String(navW));
@@ -259,6 +264,7 @@ export default function App() {
   return (
     <div className="app">
       <DeckBar
+        embedded={embedded}
         layout={layout}
         onToggleLayout={() => setLayout((l) => (l === 'stacked' ? 'columns' : 'stacked'))}
       />
@@ -317,7 +323,7 @@ export default function App() {
           onClose={() => useStudio.getState().closeInsertThemeSlide()}
         />
       )}
-      {paletteOpen && <CommandPalette />}
+      {paletteOpen && !embedded && <CommandPalette />}
       {imagePickerOpen && <ImagePicker />}
       {newDeckOpen && <NewDeckModal />}
       {dragging && <div className={`drag-overlay${dragging === 'stack' ? ' row' : ''}`} />}

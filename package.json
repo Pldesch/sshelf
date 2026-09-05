@@ -10,10 +10,20 @@
   "private": true,
   "type": "module",
   "main": "electron/main.cjs",
+  "workspaces": [
+    "vendor/estradeck/shared",
+    "vendor/estradeck/server",
+    "vendor/estradeck/client"
+  ],
   "scripts": {
-    "dev": "vite dev --port 3010",
-    "electron:dev": "concurrently -k \"vite dev --port 3010\" \"wait-on http://localhost:3010 && electron .\"",
+    "dev": "concurrently -k -n sshelf,estradeck-server,estradeck-client \"bun run dev:sshelf\" \"bun run dev:estradeck-server\" \"bun run dev:estradeck-client\"",
+    "dev:sshelf": "vite dev --port 3010",
+    "dev:estradeck-server": "bun run --cwd vendor/estradeck/server dev",
+    "dev:estradeck-client": "bun run --cwd vendor/estradeck/client dev -- --host 127.0.0.1",
+    "electron:dev": "concurrently -k \"bun run dev\" \"wait-on http://localhost:3010 http://localhost:5174/api/health && electron .\"",
     "build": "vite build",
+    "build:estradeck": "bun run --cwd vendor/estradeck/client build",
+    "typecheck:estradeck": "bun vendor/estradeck/server/node_modules/typescript/bin/tsc -p vendor/estradeck/server/tsconfig.json --noEmit && bun vendor/estradeck/client/node_modules/typescript/bin/tsc -p vendor/estradeck/client/tsconfig.json --noEmit",
     "electron:pack": "bun run build && electron-builder --dir",
     "electron:pack:mac": "bun run build && electron-builder --mac --arm64 --x64 --dir",
     "electron:pack:win": "bun run build && electron-builder --win --x64 --dir",

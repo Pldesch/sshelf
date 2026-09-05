@@ -43,10 +43,12 @@ a PR:
 
 ```sh
 bun run typecheck   # tsc --noEmit
+bun run typecheck:estradeck
 bun run lint        # eslint
 bun run check       # prettier --check
 bun run test        # vitest run
 bun run build       # vite build
+bun run build:estradeck
 ```
 
 ## Code style
@@ -63,6 +65,10 @@ Just run the formatter before committing and you don't have to think about it:
 ```sh
 bun run format
 ```
+
+The Estradeck source under `vendor/estradeck` retains its upstream formatting
+and is excluded from Sshelf's formatter and linter. Functional changes to the
+embed are still covered by Estradeck's own typecheck and build commands.
 
 ## Branches and pull requests
 

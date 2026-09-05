@@ -1,7 +1,7 @@
 import http from 'node:http';
 import fs from 'node:fs';
 import express from 'express';
-import { PORT, PRESENTATIONS_DIR, THEMES_DIR } from './config';
+import { HOST, PORT, PRESENTATIONS_DIR, THEMES_DIR } from './config';
 import { createWsHub } from './ws';
 import { startWatcher } from './watcher';
 import { decksRouter } from './routes/decks';
@@ -106,4 +106,4 @@ app.use(
 
 app.use(errorHandler);
 
-server.listen(PORT, () => console.log(`[studio] server listening on http://localhost:${PORT}`));
+server.listen(PORT, HOST, () => console.log(`[studio] server listening on http://${HOST}:${PORT}`));

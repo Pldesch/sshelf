@@ -2,12 +2,13 @@ import { useEffect, useRef, useState } from 'react';
 import type { ImageInfo, Theme, ThemePlaceholder, ThemeSlideTemplate, ThemeSummary } from '@studio/shared';
 import { useStudio } from '../state/deckStore';
 import * as api from '../api/client';
+import { studioUrl } from '../lib/url';
 
 /** Resolve an image ref to a URL the preview IFRAME can load: deck refs (images/…) point
  *  at the deck (the theme harness's base can't resolve them); theme refs (assets/…) stay
  *  relative so the harness base resolves them. */
 function resolveImageRef(ref: string, deckId: string | null): string {
-  if (ref.startsWith('images/') && deckId) return `/decks/${deckId}/${ref}`;
+  if (ref.startsWith('images/') && deckId) return studioUrl(`/decks/${deckId}/${ref}`);
   return ref;
 }
 
@@ -15,8 +16,8 @@ function resolveImageRef(ref: string, deckId: string | null): string {
  *  deck images → the deck, theme assets → the theme. */
 function thumbUrl(ref: string, deckId: string | null, themeId: string | null): string {
   if (!ref) return '';
-  if (ref.startsWith('images/') && deckId) return `/decks/${deckId}/${ref}`;
-  if (ref.startsWith('assets/') && themeId) return `/themes/${themeId}/${ref}`;
+  if (ref.startsWith('images/') && deckId) return studioUrl(`/decks/${deckId}/${ref}`);
+  if (ref.startsWith('assets/') && themeId) return studioUrl(`/themes/${themeId}/${ref}`);
   return ref;
 }
 

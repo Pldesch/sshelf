@@ -1,5 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import { PUBLIC_BASE_PATH } from '../config';
 import type { ThemeAsset } from '@studio/shared';
 import { HttpError } from '../errors';
 import { themeAssetsDir, themeExists } from './paths';
@@ -32,13 +33,13 @@ function assetInfo(id: string, name: string): ThemeAsset {
   if (kind === 'video') {
     const poster = posterNameFor(name);
     if (fs.existsSync(path.join(dir, poster))) {
-      posterUrl = `/themes/${id}/assets/${encodeURIComponent(poster)}`;
+      posterUrl = `${PUBLIC_BASE_PATH}/themes/${id}/assets/${encodeURIComponent(poster)}`;
     }
   }
   return {
     name,
     kind,
-    url: `/themes/${id}/assets/${enc}`,
+    url: `${PUBLIC_BASE_PATH}/themes/${id}/assets/${enc}`,
     ref: `assets/${name}`,
     posterUrl,
     size: st.size,

@@ -71,6 +71,9 @@ const HtmlViewer = React.lazy(() => import("@/components/html-viewer"))
 const SlideDeckEditor = React.lazy(
   () => import("@/components/slide-deck-editor")
 )
+const EstradeckEditor = React.lazy(
+  () => import("@/components/estradeck-editor")
+)
 
 /** Which page to render; the data itself lives in the query cache. */
 export type PageDescriptor =
@@ -428,6 +431,7 @@ function FileView({ data }: { data: FileData }) {
           key={data.path}
           path={data.path}
           content={data.content}
+          revision={data.revision}
         />
       ) : kind === "pdf" ? (
         <PdfViewer path={data.path} />
@@ -456,22 +460,38 @@ function FileView({ data }: { data: FileData }) {
   )
 }
 
-function SlideDeckCard({ path, content }: { path: string; content: string }) {
+function SlideDeckCard({
+  path,
+  content,
+  revision,
+}: {
+  path: string
+  content: string
+  revision: string | null
+}) {
   const [mounted, setMounted] = React.useState(false)
   const queryClient = useQueryClient()
+  const revisionRef = React.useRef(revision)
 
   React.useEffect(() => setMounted(true), [])
 
-  const { mutateAsync: saveMutate } = useMutation({
-    mutationFn: (full: string) => saveFile({ data: { path, content: full } }),
-    onSuccess: (_result, full) => {
-      const size = new TextEncoder().encode(full).byteLength
-      const modifiedAt = Date.now()
+  const patchCache = React.useCallback(
+    (
+      full: string,
+      result: { revision: string; size: number; modifiedAt: number }
+    ) => {
+      revisionRef.current = result.revision
       queryClient.setQueryData<BrowseResult>(
         browseQueryOptions(path).queryKey,
         (old) =>
           old?.kind === "file"
-            ? { ...old, content: full, size, modifiedAt }
+            ? {
+                ...old,
+                content: full,
+                revision: result.revision,
+                size: result.size,
+                modifiedAt: result.modifiedAt,
+              }
             : old
       )
       queryClient.setQueryData<BrowseResult>(
@@ -481,12 +501,31 @@ function SlideDeckCard({ path, content }: { path: string; content: string }) {
             ? {
                 ...old,
                 entries: old.entries.map((entry) =>
-                  entry.path === path ? { ...entry, size, modifiedAt } : entry
+                  entry.path === path
+                    ? {
+                        ...entry,
+                        size: result.size,
+                        modifiedAt: result.modifiedAt,
+                      }
+                    : entry
                 ),
               }
             : old
       )
     },
+    [path, queryClient]
+  )
+
+  const { mutateAsync: saveMutate } = useMutation({
+    mutationFn: (full: string) =>
+      saveFile({
+        data: {
+          path,
+          content: full,
+          expectedRevision: revisionRef.current ?? undefined,
+        },
+      }),
+    onSuccess: (result, full) => patchCache(full, result),
   })
 
   const handleSave = React.useCallback(
@@ -496,13 +535,37 @@ function SlideDeckCard({ path, content }: { path: string; content: string }) {
     [saveMutate]
   )
 
+  const handleEstradeckSync = React.useCallback(
+    (result: {
+      content: string | null
+      revision: string | null
+      size: number
+      modifiedAt: number
+    }) => {
+      if (result.content && result.revision) {
+        patchCache(result.content, {
+          revision: result.revision,
+          size: result.size,
+          modifiedAt: result.modifiedAt,
+        })
+      }
+    },
+    [patchCache]
+  )
+
   if (!mounted) {
     return <ViewerFallback />
   }
 
   return (
     <React.Suspense fallback={<ViewerFallback />}>
-      <SlideDeckEditor path={path} content={content} onSave={handleSave} />
+      <EstradeckEditor
+        path={path}
+        onSynced={handleEstradeckSync}
+        fallback={
+          <SlideDeckEditor path={path} content={content} onSave={handleSave} />
+        }
+      />
     </React.Suspense>
   )
 }

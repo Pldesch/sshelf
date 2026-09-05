@@ -1,4 +1,5 @@
 import type { CSSProperties } from 'react';
+import { studioUrl } from './url';
 import type { DeckModel, Slide } from '@studio/shared';
 
 /** A slide with data-visibility="hidden" is removed from the presentation by reveal. */
@@ -61,7 +62,7 @@ export function slideBackgroundStyle(slide: Slide, deckId: string): CSSPropertie
   const a = slide.attrs;
   if (a.backgroundImage) {
     const raw = a.backgroundImage;
-    const url = /^(https?:)?\/\//.test(raw) || raw.startsWith('/') ? raw : `/decks/${deckId}/${raw}`;
+    const url = /^(https?:)?\/\//.test(raw) ? raw : studioUrl(raw.startsWith('/') ? raw : `/decks/${deckId}/${raw}`);
     return {
       backgroundColor: slideBackground(slide),
       backgroundImage: `url("${url}")`,

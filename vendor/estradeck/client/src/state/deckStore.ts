@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import type { DeckModel, DeckSummary, Job, ServerMessage, Theme, ThemeSummary } from '@studio/shared';
 import * as api from '../api/client';
 import { resolveKey } from '../lib/locate';
+import { notifySshelf } from '../lib/embed';
 
 export interface AgentLogEntry {
   id: number;
@@ -389,6 +390,11 @@ export const useStudio = create<StudioState>((set, get) => ({
     if ('deckId' in msg && msg.deckId && msg.deckId !== state.currentDeckId) return;
     switch (msg.type) {
       case 'deck-changed':
+        notifySshelf('deck-changed', {
+          deckId: msg.deckId,
+          file: msg.file,
+          deleted: msg.deleted,
+        });
         void state.refreshModel();
         set({ previewNonce: get().previewNonce + 1 });
         break;

@@ -6,9 +6,11 @@ import * as api from '../api/client';
 export function DeckBar({
   layout,
   onToggleLayout,
+  embedded = false,
 }: {
   layout?: 'columns' | 'stacked';
   onToggleLayout?: () => void;
+  embedded?: boolean;
 } = {}) {
   const mode = useStudio((s) => s.mode);
   const decks = useStudio((s) => s.decks);
@@ -86,6 +88,12 @@ export function DeckBar({
         </span>
       </div>
       <div className="deck-controls">
+        {embedded ? (
+          <span className="embedded-deck-title">
+            {decks.find((deck) => deck.id === currentDeckId)?.title ?? currentDeckId}
+          </span>
+        ) : (
+          <>
         <select
           value={mode === 'theme' ? `theme:${currentThemeId ?? ''}` : currentDeckId ?? ''}
           onChange={(e) => onPick(e.target.value)}
@@ -136,6 +144,8 @@ export function DeckBar({
               <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z" />
             </svg>
           </button>
+        )}
+          </>
         )}
       </div>
       {mode === 'deck' && currentDeckId && (

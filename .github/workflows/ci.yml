@@ -23,6 +23,9 @@ jobs:
       - name: Typecheck
         run: bun run typecheck
 
+      - name: Typecheck Estradeck
+        run: bun run typecheck:estradeck
+
       - name: Lint
         run: bun run lint
 
@@ -34,3 +37,6 @@ jobs:
 
       - name: Build
         run: bun run build
+
+      - name: Build Estradeck
+        run: bun run build:estradeck

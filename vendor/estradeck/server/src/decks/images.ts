@@ -1,5 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import { PUBLIC_BASE_PATH } from '../config';
 import type { ImageInfo } from '@studio/shared';
 import { deckDir, deckExists } from './paths';
 import { HttpError } from '../errors';
@@ -66,7 +67,7 @@ function infoFor(id: string, name: string): ImageInfo {
   const enc = encodeURIComponent(name);
   return {
     name,
-    url: `/decks/${id}/images/${enc}`,
+    url: `${PUBLIC_BASE_PATH}/decks/${id}/images/${enc}`,
     ref: `images/${name}`,
     size: st.size,
     mtime: st.mtimeMs,

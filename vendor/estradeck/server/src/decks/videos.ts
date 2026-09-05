@@ -1,5 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import { PUBLIC_BASE_PATH } from '../config';
 import { spawn, spawnSync } from 'node:child_process';
 import type { VideoInfo } from '@studio/shared';
 import { deckDir, deckExists, stylesPath } from './paths';
@@ -67,10 +68,10 @@ function infoFor(id: string, name: string): VideoInfo {
   const hasPoster = fs.existsSync(path.join(dir, posterName));
   return {
     name,
-    url: `/decks/${id}/videos/${encodeURIComponent(name)}`,
+    url: `${PUBLIC_BASE_PATH}/decks/${id}/videos/${encodeURIComponent(name)}`,
     ref: `videos/${name}`,
     poster: hasPoster ? `videos/${posterName}` : undefined,
-    posterUrl: hasPoster ? `/decks/${id}/videos/${encodeURIComponent(posterName)}` : undefined,
+    posterUrl: hasPoster ? `${PUBLIC_BASE_PATH}/decks/${id}/videos/${encodeURIComponent(posterName)}` : undefined,
     size: st.size,
     mtime: st.mtimeMs,
   };

@@ -3,6 +3,7 @@ import { useStudio } from '../state/deckStore';
 import { findSlide, locate } from '../lib/locate';
 import { hideRevealControls } from '../lib/previewChrome';
 import * as api from '../api/client';
+import { studioUrl } from '../lib/url';
 
 const DEFAULT_STEP_MS = 1500;
 const FPS_OPTIONS = [24, 30, 60];
@@ -170,7 +171,7 @@ export function VideoExportModal({ slideKey, onClose }: { slideKey: string; onCl
             ref={iframeRef}
             title="Video preview"
             className="ve-frame"
-            src={`/decks/${deckId}/presentation.html?ve=1`}
+            src={studioUrl(`/decks/${deckId}/presentation.html?ve=1`)}
             onLoad={onIframeLoad}
           />
           <div className="ve-preview-bar">

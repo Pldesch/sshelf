@@ -1,4 +1,5 @@
 import type { ServerMessage } from '@studio/shared';
+import { studioUrl } from '../lib/url';
 
 export interface WsClient {
   subscribe(deckId: string): void;
@@ -12,7 +13,8 @@ export function createWsClient(onMessage: (msg: ServerMessage) => void): WsClien
   let closed = false;
   let retry = 0;
 
-  const url = `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/ws`;
+  const url = new URL(studioUrl('/ws'), location.href);
+  url.protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
 
   function connect() {
     ws = new WebSocket(url);

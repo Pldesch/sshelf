@@ -311,7 +311,7 @@ export interface Job {
 
 // --- WebSocket protocol ---
 export type ServerMessage =
-  | { type: 'deck-changed'; deckId: string; file: string }
+  | { type: 'deck-changed'; deckId: string; file: string; deleted?: boolean }
   | { type: 'jobs-snapshot'; deckId: string; jobs: Job[] }
   | { type: 'job-update'; deckId: string; job: Job }
   | { type: 'job-log'; deckId: string; jobId: string; kind: string; text: string };

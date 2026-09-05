@@ -11,10 +11,10 @@
   ],
   "scripts": {
     "dev": "concurrently -n server,client -c blue,magenta \"npm:dev:server\" \"npm:dev:client\"",
-    "dev:server": "npm run dev --workspace @studio/server",
-    "dev:client": "npm run dev --workspace @studio/client",
-    "build": "npm run build --workspace @studio/client",
-    "typecheck": "npm run typecheck --workspace @studio/server && npm run typecheck --workspace @studio/client"
+    "dev:server": "bun run --cwd server dev",
+    "dev:client": "bun run --cwd client dev",
+    "build": "bun run --cwd client build",
+    "typecheck": "tsc -p server/tsconfig.json --noEmit && tsc -p client/tsconfig.json --noEmit"
   },
   "devDependencies": {
     "concurrently": "^9.1.2"

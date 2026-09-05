@@ -9,6 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Embedded the real Estradeck presentation studio for `.slides.html` decks,
+  including slide operations, assets, history, themes, colors, animations,
+  agents, and Reveal export with revision-safe workspace synchronization and a
+  built-in-editor fallback
+  ([#2](https://github.com/Pldesch/sshelf/pull/2)).
 - Added an opt-in, development-only local filesystem transport for running
   Sshelf on the server it browses, with production guards, an explicit bounded
   root, and symlink-traversal protection.

@@ -65,7 +65,7 @@ export function MentionTextarea({
   deckIdRef.current = deckId;
   const ctxRef = useRef(getCompletionContext);
   ctxRef.current = getCompletionContext;
-  const ghostRef = useRef<ReturnType<typeof createGhostCompleter>>();
+  const ghostRef = useRef<ReturnType<typeof createGhostCompleter> | null>(null);
   if (!ghostRef.current) {
     ghostRef.current = createGhostCompleter({
       complete: async (req, signal) => {

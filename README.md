@@ -56,8 +56,11 @@ reach over SSH, Sshelf is meant to be the front door to it.
   upload files and folders (drag-and-drop included).
 - **Markdown editor** — Markdown files open straight into a block-based WYSIWYG
   editor that autosaves over SSH as you type, with local image uploads.
-- **Slide decks** — `.slides.html` files open as editable Reveal presentations
-  and export through Reveal's PDF print view.
+- **Slide decks** — `.slides.html` files open in an embedded
+  [Estradeck](https://github.com/Syndicats/estradeck) studio with slide
+  navigation, assets, history, colors, themes, animation controls, agents, and
+  Reveal PDF export. Changes autosync to the workspace; the built-in visual
+  editor remains available if the studio is offline.
 - **Database views** — open a `.sqlite`/`.db` file as Notion-style tables:
   typed columns (text, number, select, status, checkbox, date, URL…), a Kanban
   **board view**, per-row Markdown pages, filtering/sorting/search, and saved
@@ -75,7 +78,8 @@ bun install
 bun run dev
 ```
 
-Then open <http://localhost:3010>.
+Then open <http://localhost:3010>. The development command also starts the
+loopback-only Estradeck API and editor used for `.slides.html` files.
 
 On first run you pick which host to connect to from your `~/.ssh/config`. The
 host must already work from your terminal (`ssh <host>`); Sshelf doesn't manage
@@ -100,16 +104,28 @@ SSH-host configuration.
 
 Sshelf is configured through environment variables:
 
-| Variable             | Default           | Description                                                                                       |
-| -------------------- | ----------------- | ------------------------------------------------------------------------------------------------- |
-| `SSHELF_TRANSPORT`   | `ssh`             | Server-side transport. `local` is accepted only in an explicit development runtime.               |
-| `SSHELF_SSH_HOST`    | _(chosen in-app)_ | SSH host to connect to. Must match an entry in `~/.ssh/config`.                                   |
-| `SSHELF_REMOTE_ROOT` | `/home/ubuntu`    | Workspace root used by SSH transport.                                                             |
-| `SSHELF_LOCAL_ROOT`  | _(required)_      | Existing absolute POSIX directory used only when `SSHELF_TRANSPORT=local`; `/` is never accepted. |
+| Variable                         | Default                            | Description                                                                                       |
+| -------------------------------- | ---------------------------------- | ------------------------------------------------------------------------------------------------- |
+| `SSHELF_TRANSPORT`               | `ssh`                              | Server-side transport. `local` is accepted only in an explicit development runtime.               |
+| `SSHELF_SSH_HOST`                | _(chosen in-app)_                  | SSH host to connect to. Must match an entry in `~/.ssh/config`.                                   |
+| `SSHELF_REMOTE_ROOT`             | `/home/ubuntu`                     | Workspace root used by SSH transport.                                                             |
+| `SSHELF_LOCAL_ROOT`              | _(required)_                       | Existing absolute POSIX directory used only when `SSHELF_TRANSPORT=local`; `/` is never accepted. |
+| `SSHELF_ESTRADECK_URL`           | `/estradeck/` in dev               | Trusted Estradeck editor URL. Required outside development; otherwise the fallback is used.        |
+| `ESTRADECK_PRESENTATIONS_DIR`    | OS temp directory                  | Private mirror shared by Sshelf and the Estradeck sidecar.                                        |
+| `ESTRADECK_HOST`                 | `127.0.0.1`                        | Address for the Estradeck API. Keep loopback-only unless it is protected by an authenticated proxy. |
 
 The chosen SSH host is also remembered between runs in `~/.sshelf.json`.
 
 ## Reveal slide decks
+
+Sshelf mirrors only the selected deck and its bounded relative assets into a
+private local Estradeck workspace. The iframe bridge accepts messages only from
+the configured editor origin and only for that deck. Presentation writes use
+revision checks, so an external change is never silently overwritten. Raw Code
+and Styles tabs are hidden in Sshelf's embedded mode; style controls are stored
+in an adjacent `*.slides.css` file and linked into the deck on the first style
+edit. Assets added in Estradeck are copied back to the deck folder, while asset
+deletions use Sshelf's recoverable managed trash.
 
 Each `.slides.html` document uses one canvas size for all of its sections. Set
 that size on the document element:
@@ -227,10 +243,12 @@ The iframe remains sandboxed with an opaque origin.
 - `src/server/ssh.ts` — SSH transport, caching, circuit breaker, search
 - `src/server/files.ts` — file server functions used by the UI
 - `src/server/database.ts` — SQLite read/write server functions
+- `src/server/estradeck.ts` — guarded deck mirror and revision-safe sync bridge
 - `src/lib/queries.ts` — TanStack Query options for every read
 - `src/routes/` — the explorer pages and the `/api/*` routes (raw files, upload, SSE)
 - `src/components/` — sidebar, file tree, viewers, Markdown editor, database views
 - `electron/` — the desktop shell and embedded server
+- `vendor/estradeck/` — MIT-licensed Estradeck source, vendored from upstream
 - `src/styles.css` — design tokens (navy / paper / orange palette)
 
 ## Contributing

@@ -15,6 +15,11 @@ export default [
     },
   },
   {
-    ignores: ["eslint.config.js", ".prettierrc", ".claude/**"],
+    ignores: [
+      "eslint.config.js",
+      ".prettierrc",
+      ".claude/**",
+      "vendor/estradeck/**",
+    ],
   },
 ]

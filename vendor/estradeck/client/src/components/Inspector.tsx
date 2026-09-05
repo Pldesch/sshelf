@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { CodeEditor } from './CodeEditor';
 import { StyleEditor } from './StyleEditor';
 import { ColorPanel } from './ColorPanel';
@@ -5,6 +6,7 @@ import { ThemePanel } from './ThemePanel';
 import { AnimationPanel } from './AnimationPanel';
 import { FleetPanel } from './FleetPanel';
 import { useStudio } from '../state/deckStore';
+import { isSshelfEmbed } from '../lib/embed';
 
 const TABS = [
   { id: 'code', label: 'Code' },
@@ -16,15 +18,22 @@ const TABS = [
 ] as const;
 
 export function Inspector() {
+  const embedded = isSshelfEmbed();
   const tab = useStudio((s) => s.inspectorTab);
   const setTab = useStudio((s) => s.setInspectorTab);
   const activeJobs = useStudio((s) =>
     s.jobs.filter((j) => j.status === 'running' || j.status === 'queued').length,
   );
+  const tabs = embedded ? TABS.filter((item) => item.id !== 'code' && item.id !== 'styles') : TABS;
+
+  useEffect(() => {
+    if (embedded && (tab === 'code' || tab === 'styles')) setTab('colors');
+  }, [embedded, setTab, tab]);
+
   return (
     <aside className="inspector">
       <div className="tabs">
-        {TABS.map((t) => (
+        {tabs.map((t) => (
           <button
             key={t.id}
             className={`tab${tab === t.id ? ' active' : ''}`}
@@ -36,8 +45,8 @@ export function Inspector() {
         ))}
       </div>
       <div className="tab-body">
-        {tab === 'code' && <CodeEditor />}
-        {tab === 'styles' && <StyleEditor />}
+        {!embedded && tab === 'code' && <CodeEditor />}
+        {!embedded && tab === 'styles' && <StyleEditor />}
         {tab === 'colors' && <ColorPanel />}
         {tab === 'theme' && <ThemePanel />}
         {tab === 'animate' && <AnimationPanel />}
