@@ -9,13 +9,20 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as MeetingRouteImport } from './routes/meeting'
 import { Route as CyrusRouteImport } from './routes/cyrus'
 import { Route as SplatRouteImport } from './routes/$'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ApiUploadRouteImport } from './routes/api/upload'
 import { Route as ApiRawRouteImport } from './routes/api/raw'
+import { Route as ApiMeetingEventsRouteImport } from './routes/api/meeting-events'
 import { Route as ApiEventsRouteImport } from './routes/api/events'
 
+const MeetingRoute = MeetingRouteImport.update({
+  id: '/meeting',
+  path: '/meeting',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const CyrusRoute = CyrusRouteImport.update({
   id: '/cyrus',
   path: '/cyrus',
@@ -41,6 +48,11 @@ const ApiRawRoute = ApiRawRouteImport.update({
   path: '/api/raw',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiMeetingEventsRoute = ApiMeetingEventsRouteImport.update({
+  id: '/api/meeting-events',
+  path: '/api/meeting-events',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiEventsRoute = ApiEventsRouteImport.update({
   id: '/api/events',
   path: '/api/events',
@@ -51,7 +63,9 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/$': typeof SplatRoute
   '/cyrus': typeof CyrusRoute
+  '/meeting': typeof MeetingRoute
   '/api/events': typeof ApiEventsRoute
+  '/api/meeting-events': typeof ApiMeetingEventsRoute
   '/api/raw': typeof ApiRawRoute
   '/api/upload': typeof ApiUploadRoute
 }
@@ -59,7 +73,9 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/$': typeof SplatRoute
   '/cyrus': typeof CyrusRoute
+  '/meeting': typeof MeetingRoute
   '/api/events': typeof ApiEventsRoute
+  '/api/meeting-events': typeof ApiMeetingEventsRoute
   '/api/raw': typeof ApiRawRoute
   '/api/upload': typeof ApiUploadRoute
 }
@@ -68,21 +84,41 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/$': typeof SplatRoute
   '/cyrus': typeof CyrusRoute
+  '/meeting': typeof MeetingRoute
   '/api/events': typeof ApiEventsRoute
+  '/api/meeting-events': typeof ApiMeetingEventsRoute
   '/api/raw': typeof ApiRawRoute
   '/api/upload': typeof ApiUploadRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/$' | '/cyrus' | '/api/events' | '/api/raw' | '/api/upload'
+  fullPaths:
+    | '/'
+    | '/$'
+    | '/cyrus'
+    | '/meeting'
+    | '/api/events'
+    | '/api/meeting-events'
+    | '/api/raw'
+    | '/api/upload'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/$' | '/cyrus' | '/api/events' | '/api/raw' | '/api/upload'
+  to:
+    | '/'
+    | '/$'
+    | '/cyrus'
+    | '/meeting'
+    | '/api/events'
+    | '/api/meeting-events'
+    | '/api/raw'
+    | '/api/upload'
   id:
     | '__root__'
     | '/'
     | '/$'
     | '/cyrus'
+    | '/meeting'
     | '/api/events'
+    | '/api/meeting-events'
     | '/api/raw'
     | '/api/upload'
   fileRoutesById: FileRoutesById
@@ -91,13 +127,22 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   SplatRoute: typeof SplatRoute
   CyrusRoute: typeof CyrusRoute
+  MeetingRoute: typeof MeetingRoute
   ApiEventsRoute: typeof ApiEventsRoute
+  ApiMeetingEventsRoute: typeof ApiMeetingEventsRoute
   ApiRawRoute: typeof ApiRawRoute
   ApiUploadRoute: typeof ApiUploadRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/meeting': {
+      id: '/meeting'
+      path: '/meeting'
+      fullPath: '/meeting'
+      preLoaderRoute: typeof MeetingRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/cyrus': {
       id: '/cyrus'
       path: '/cyrus'
@@ -133,6 +178,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiRawRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/meeting-events': {
+      id: '/api/meeting-events'
+      path: '/api/meeting-events'
+      fullPath: '/api/meeting-events'
+      preLoaderRoute: typeof ApiMeetingEventsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/events': {
       id: '/api/events'
       path: '/api/events'
@@ -147,7 +199,9 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   SplatRoute: SplatRoute,
   CyrusRoute: CyrusRoute,
+  MeetingRoute: MeetingRoute,
   ApiEventsRoute: ApiEventsRoute,
+  ApiMeetingEventsRoute: ApiMeetingEventsRoute,
   ApiRawRoute: ApiRawRoute,
   ApiUploadRoute: ApiUploadRoute,
 }

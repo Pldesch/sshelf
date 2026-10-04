@@ -4,6 +4,7 @@ const http = require("node:http")
 const path = require("node:path")
 const { pathToFileURL } = require("node:url")
 const { Readable } = require("node:stream")
+const { pipeline } = require("node:stream/promises")
 const { initAutoUpdates } = require("./updater.cjs")
 
 const DEV_SERVER_URL = process.env.ELECTRON_START_URL || "http://localhost:3010"
@@ -112,9 +113,16 @@ async function handleStartRequest(fetchHandler, origin, req, res) {
     }
   }
 
+  // Let the app see a closed connection (e.g. a long-lived event stream
+  // whose page went away) as an aborted request.
+  const abort = new AbortController()
+  res.once("close", () => {
+    if (!res.writableEnded) abort.abort()
+  })
   const init = {
     method: req.method || "GET",
     headers,
+    signal: abort.signal,
   }
 
   if (init.method !== "GET" && init.method !== "HEAD") {
@@ -134,7 +142,9 @@ async function handleStartRequest(fetchHandler, origin, req, res) {
     return
   }
 
-  Readable.fromWeb(response.body).pipe(res)
+  // Unlike pipe(), pipeline() also cancels the response body when the
+  // connection closes.
+  await pipeline(Readable.fromWeb(response.body), res).catch(() => {})
 }
 
 async function startEmbeddedServer() {
@@ -148,11 +158,19 @@ async function startEmbeddedServer() {
   }
 
   embeddedServer = http.createServer((req, res) => {
-    if (sendStaticFile(req, res)) return
-
     const address = embeddedServer.address()
     const port = typeof address === "object" && address ? address.port : 0
     const origin = `http://127.0.0.1:${port}`
+
+    // Only answer requests addressed to this exact host and port, so a web
+    // page that rebinds its own domain to 127.0.0.1 can't reach the app.
+    if (req.headers.host !== `127.0.0.1:${port}`) {
+      res.writeHead(421, { "Content-Type": "text/plain; charset=utf-8" })
+      res.end("Misdirected request")
+      return
+    }
+
+    if (sendStaticFile(req, res)) return
 
     handleStartRequest(fetchHandler, origin, req, res).catch((error) => {
       console.error(error)

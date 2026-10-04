@@ -3,6 +3,7 @@ import {
   ArrowLeftRightIcon,
   BotIcon,
   FolderTree,
+  MicIcon,
   RefreshCwIcon,
 } from "lucide-react"
 import {
@@ -23,15 +24,21 @@ import {
   SidebarMenuItem,
 } from "@/components/ui/sidebar"
 import { FileTree } from "@/components/file-tree"
+import { useMeetingSelector } from "@/lib/meeting-store"
 import { useWorkspace } from "@/lib/use-tree"
 
 export function AppSidebar() {
   const { tree, state, refresh } = useWorkspace()
   const location = useLocation()
   const onCyrus = location.pathname.startsWith("/cyrus")
-  const activePath = onCyrus
-    ? ""
-    : decodeURIComponent(location.pathname).replace(/^\/+/, "")
+  const onMeeting =
+    location.pathname === "/meeting" ||
+    location.pathname.startsWith("/meeting/")
+  const recording = useMeetingSelector((s) => s.phase === "live")
+  const activePath =
+    onCyrus || onMeeting
+      ? ""
+      : decodeURIComponent(location.pathname).replace(/^\/+/, "")
 
   return (
     <Sidebar>
@@ -52,6 +59,20 @@ export function AppSidebar() {
                   <Link to="/cyrus">
                     <BotIcon />
                     <span>Cyrus</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton asChild isActive={onMeeting}>
+                  <Link to="/meeting">
+                    <MicIcon />
+                    <span>Meeting</span>
+                    {recording && (
+                      <span
+                        className="ml-auto size-2 animate-pulse rounded-full bg-red-500"
+                        aria-label="Recording"
+                      />
+                    )}
                   </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>

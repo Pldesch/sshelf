@@ -27,6 +27,17 @@ export const Route = createFileRoute("/api/upload")({
   server: {
     handlers: {
       POST: async ({ request }) => {
+        // A plain cross-site form can POST here; only accept the app itself.
+        const site = request.headers.get("Sec-Fetch-Site")
+        const origin = request.headers.get("Origin")
+        if (
+          (site && site !== "same-origin") ||
+          (origin && origin !== new URL(request.url).origin)
+        ) {
+          return new Response("Cross-site uploads are not allowed", {
+            status: 403,
+          })
+        }
         let form: FormData
         try {
           form = await request.formData()
