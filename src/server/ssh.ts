@@ -97,7 +97,7 @@ export function listSshConfigHosts(): Array<SshConfigHost> {
 
 // Reuse one SSH connection across requests where OpenSSH multiplexing is
 // available. Windows OpenSSH does not reliably support these Unix socket args.
-const SSH_BASE_ARGS = [
+export const SSH_BASE_ARGS = [
   "-o",
   "BatchMode=yes",
   "-o",
@@ -343,6 +343,29 @@ export async function writeRemoteFile(
   )
   invalidateRemotePath(relativePath)
   markRemoteMutation()
+}
+
+/**
+ * Rewrite a remote file atomically (temp file, then rename) for background
+ * writers such as the live meeting transcript. Unlike `writeRemoteFile` it
+ * doesn't flag the change as made by this app — the flag would make the file
+ * poller swallow unrelated out-of-band changes — and only drops this file's
+ * cache entries.
+ */
+export async function writeRemoteFileInBackground(
+  relativePath: string,
+  content: Buffer
+): Promise<void> {
+  const absolute = resolveRemotePath(relativePath)
+  const slash = absolute.lastIndexOf("/")
+  const parent = slash > 0 ? absolute.slice(0, slash) : REMOTE_ROOT
+  const temp = `${absolute}.sshelf-tmp`
+  await execRemoteStdin(
+    `mkdir -p ${shellQuote(parent)} && cat > ${shellQuote(temp)} && mv -f ${shellQuote(temp)} ${shellQuote(absolute)}`,
+    content
+  )
+  invalidateRemoteCacheKey(`file:${relativePath}`)
+  invalidateRemoteCacheKey(`entry:${relativePath}`)
 }
 
 /* ── In-memory cache: fresh within TTL, stale data survives as a

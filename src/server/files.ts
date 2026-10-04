@@ -1,4 +1,5 @@
 import { createServerFn } from "@tanstack/react-start"
+import { hasActiveMeetings } from "@/server/meeting-sessions"
 import {
   REMOTE_ROOT,
   SshError,
@@ -83,6 +84,11 @@ export const getSshHosts = createServerFn().handler(
 export const selectSshHost = createServerFn({ method: "POST" })
   .inputValidator((data: { host: string }) => data)
   .handler(async ({ data }) => {
+    if (hasActiveMeetings() && data.host !== getCurrentHost()) {
+      throw new Error(
+        "A meeting is running (or Claude is still working on one). End it before switching servers."
+      )
+    }
     const known = listSshConfigHosts().some((h) => h.alias === data.host)
     if (!known) {
       throw new Error(`"${data.host}" is not in your ~/.ssh/config`)

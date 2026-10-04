@@ -7,6 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-10-04
+
+### Added
+
+- Added a Meeting page that transcribes the microphone live with ElevenLabs
+  and saves the transcript as Markdown in the workspace (default
+  `Process/inbox`). The ElevenLabs API key is managed in the app, checked on
+  save, and never leaves this computer; the page streams with single-use
+  tokens.
+- Saying "Hey Claude" cuts the transcript into a request card. Claude Code runs
+  on the SSH server, using its existing install and login, in one session per
+  meeting with the conversation so far as context. Requests sent while Claude
+  is still working steer it, and a Stop button interrupts it.
+- Added "Ingest with Claude" after a meeting: Claude Code starts in the nearest
+  folder with its own `CLAUDE.md`, `AGENTS.md` or `.claude/` so that folder's
+  skills apply, and offers a command to continue the session in a terminal.
+- Added `bun run meeting`, a command-line version of the meeting assistant.
+
+### Security
+
+- The embedded app server now only answers requests addressed to its own host,
+  and file uploads reject cross-site requests.
+
 ## [0.7.2] - 2026-09-03
 
 ### Fixed

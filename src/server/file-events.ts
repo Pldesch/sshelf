@@ -62,6 +62,15 @@ async function pollRemoteFiles() {
   }
 }
 
+/** Tell open pages that remote files changed (e.g. after Claude Code edited
+ * the workspace) without waiting for the poller. */
+export function notifyRemoteFilesChanged() {
+  const host = getCurrentHost()
+  if (!host) return
+  clearRemoteCache()
+  broadcast("files-changed", { host, fingerprint: "" })
+}
+
 function startPolling() {
   if (pollTimer) return
   void pollRemoteFiles()
